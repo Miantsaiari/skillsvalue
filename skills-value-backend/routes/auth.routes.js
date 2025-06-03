@@ -1,0 +1,14 @@
+const express = require('express');
+const router = express.Router();
+const { body } = require('express-validator');
+const authController = require('../controllers/auth.controller');
+
+router.post('/login', 
+  [
+    body('email').isEmail().withMessage('Email invalide'),
+    body('password').notEmpty().withMessage('Mot de passe requis')
+  ],
+  authController.login
+);
+
+module.exports = router;

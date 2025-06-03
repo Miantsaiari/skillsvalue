@@ -2,6 +2,7 @@ const express = require('express');
 require('dotenv').config();
 const app = express();
 
+const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
 const testRoutes = require('./routes/test.routes');
 const questionRoutes = require('./routes/question.routes');
@@ -13,9 +14,10 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(adminRoutes);
+app.use('/api/auth',authRoutes);
 app.use(testRoutes);
 app.use(questionRoutes);
-app.use(candidatRoutes);
+app.use('/api/candidates',candidatRoutes);
 app.use(reponseRoutes);
 
 

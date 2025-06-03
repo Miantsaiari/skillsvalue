@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const {createCandidat} = require('../controllers/candidat.controller');
+const authMiddleware = require('../middlewares/authMiddleware');
+const candidateController = require('../controllers/candidat.controller');
 
-router.post('/api/candidats', createCandidat);
+router.post('/invite', authMiddleware, candidateController.inviteCandidate);
 
 module.exports = router;

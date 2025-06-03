@@ -1,11 +1,12 @@
 const pool = require('../db');
 
 exports.createTest = async (req, res) => {
-  const { titre, description } = req.body;
+  const { titre, description, duree } = req.body;
+   const adminId = req.adminId; 
   try {
     const result = await pool.query(
-      `INSERT INTO test (titre, description) VALUES ($1, $2) RETURNING *`,
-      [titre, description]
+      `INSERT INTO test (titre, description, duree, admin_id) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [titre, description, duree, adminId]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
