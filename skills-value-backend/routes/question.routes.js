@@ -1,7 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const {createQuestion} = require('../controllers/question.controller');
+const questionController = require('../controllers/question.controller');
+const { questionValidationRules } = require('../middlewares/questionValidator');
+const authMiddleware = require('../middlewares/authMiddleware');
 
-router.post('/api/questions', createQuestion);
+router.post(
+  '/:testId/questions',
+  authMiddleware,
+  questionValidationRules,
+  questionController.addQuestion
+);
+
+router.get(
+  '/:testId/questions',
+  authMiddleware,
+  questionController.getQuestions
+);
 
 module.exports = router;

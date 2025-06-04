@@ -13,6 +13,6 @@ exports.createCandidate = async (email, testId) => {
   
   return {
     candidate: result.rows[0],
-    invitationLink: `http://localhost:3000/tests/${testId}/start?token=${token}`
+    invitationLink: `http://localhost:5173/tests/${testId}/start?token=${token}`
   };
 };
