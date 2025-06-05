@@ -7,6 +7,7 @@ import Layout from './components/Layout/Layout';
 import TestStart from './components/Tests/TestStarts';
 import TestPage from './components/Tests/TestPage';
 import AdminResultPage from './components/Admin/AdminResultPage';
+import Classement from './components/Admin/Classement';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<Layout/>}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/classement" element={<Classement />} />
             <Route path="/tests/:id" element={<TestDetail />} />
             <Route path="/" element={<Dashboard />} />
           </Route>

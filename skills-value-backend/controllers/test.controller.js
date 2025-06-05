@@ -89,7 +89,7 @@ exports.submitTest = async (req, res) => {
     for (const [questionId, reponse] of Object.entries(answers)) {
       await client.query(
         'INSERT INTO reponse (test_id, token, question_id, reponse) VALUES ($1, $2, $3, $4)',
-        [testId, token, questionId, JSON.stringify(reponse)]
+        [testId, token, questionId, reponse]
       );
     }
 
@@ -108,8 +108,16 @@ exports.getResultsByToken = async (req, res) => {
   const { testId, token } = req.params;
 
   try {
+    // Récupérer les réponses du candidat avec les infos nécessaires
     const result = await pool.query(
-      `SELECT q.enonce, q.type, r.reponse, c.email
+      `SELECT 
+          q.id AS question_id,
+          q.enonce,
+          q.type,
+          q.bonne_reponse,
+          q.points,
+          r.reponse,
+          c.email
        FROM reponse r
        JOIN candidat c ON c.token = r.token
        JOIN question q ON q.id = r.question_id
@@ -122,12 +130,52 @@ exports.getResultsByToken = async (req, res) => {
       return res.status(404).json({ error: 'Aucune réponse trouvée pour ce candidat.' });
     }
 
-    console.log(result.rows);
-    
-    res.json(result.rows);
+    let totalPoints = 0;
+    let pointsObtenus = 0;
+    const details = [];
+
+    for (const row of result.rows) {
+      const bonneReponse = row.bonne_reponse;
+      const reponseCandidat = row.reponse;
+      const points = row.points || 1;
+
+      totalPoints += points;
+
+      let estCorrect = false;
+
+      // Comparaison adaptée pour les types différents (string, choix multiples, etc.)
+      if (typeof bonneReponse === 'string' && typeof reponseCandidat === 'string') {
+        estCorrect = bonneReponse.trim() === reponseCandidat.trim();
+      } else if (Array.isArray(bonneReponse) && Array.isArray(reponseCandidat)) {
+        estCorrect = JSON.stringify(bonneReponse.sort()) === JSON.stringify(reponseCandidat.sort());
+      }
+
+      if (estCorrect) {
+        pointsObtenus += points;
+      }
+
+      details.push({
+        enonce: row.enonce,
+        reponseCandidat,
+        bonneReponse,
+        points,
+        estCorrect
+      });
+    }
+
+    res.json({
+      email: result.rows[0].email,
+      testId,
+      token,
+      totalPoints,
+      pointsObtenus,
+      scorePourcentage: Math.round((pointsObtenus / totalPoints) * 100),
+      reponses: details
+    });
   } catch (err) {
-    console.error('Erreur récupération des réponses :', err);
+    console.error('Erreur récupération des résultats :', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 };
+
 

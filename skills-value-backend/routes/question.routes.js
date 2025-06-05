@@ -17,4 +17,9 @@ router.get(
   questionController.getQuestions
 );
 
+router.get(
+  '/:testId/questions/candidate',
+  questionController.getQuestionsForCandidate
+);
+
 module.exports = router;

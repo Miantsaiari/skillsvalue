@@ -16,7 +16,7 @@ export default function CreateTestForm({ onTestCreated }) {
       setDescription('');
       setDuree('');
       console.log('Nouveau test :', response.data);
-      if (onTestCreated) onTestCreated(); // ✅ recharge la liste
+      if (onTestCreated) onTestCreated(); 
     } catch (error) {
       console.error('Erreur création test :', error);
       setMessage("Erreur lors de la création du test.");

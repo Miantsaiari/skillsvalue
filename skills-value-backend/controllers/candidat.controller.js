@@ -89,3 +89,41 @@ exports.getTestQuestions = async (req, res) => {
     res.status(500).json({ error: "Erreur serveur" });
   }
 };
+
+
+exports.getClassementGeneral = async (req, res) => {
+  const adminId = req.adminId; 
+
+  try {
+    const result = await pool.query(
+      `SELECT 
+        c.email,
+        c.token,
+        SUM(q.points) AS total,
+        SUM(
+          CASE 
+            WHEN (
+              (q.type = 'texte_libre' AND r.reponse = q.bonne_reponse)
+              OR 
+              (q.type = 'choix_multiple' AND r.reponse = q.bonne_reponse)
+            ) 
+            THEN q.points 
+            ELSE 0 
+          END
+        ) AS score
+      FROM reponse r
+      JOIN candidat c ON c.token = r.token
+      JOIN question q ON q.id = r.question_id
+      JOIN test t ON t.id = r.test_id
+      WHERE t.admin_id = $1
+      GROUP BY c.email, c.token
+      ORDER BY score DESC`,
+      [adminId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Erreur récupération classement :", err);
+    res.status(500).json({ error: "Erreur serveur." });
+  }
+};
+

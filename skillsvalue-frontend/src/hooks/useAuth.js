@@ -11,7 +11,8 @@ export default function useAuth() {
       const response = await api.post('/auth/login', { email, password });
       localStorage.setItem('access_token', response.data.accessToken);
       localStorage.setItem('refresh_token', response.data.refreshToken);
-      navigate('/dashboard'); // Redirection ici
+      navigate('/dashboard');
+      window.location.reload();
       return true;
     } catch (err) {
       setError(err.response?.data?.error || 'Erreur de connexion');
@@ -20,6 +21,7 @@ export default function useAuth() {
   };
 
   const logout = () => {
+    console.log("logout");
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     navigate('/login');

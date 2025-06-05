@@ -16,31 +16,42 @@ export default function TestPage() {
   const [timeLeft, setTimeLeft] = useState(1); // en secondes
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!token) {
-        setError('Token manquant');
-        setLoading(false);
-        return;
-      }
+ useEffect(() => {
+  const fetchData = async () => {
+    if (!token) {
+      setError('Token manquant');
+      setLoading(false);
+      return;
+    }
 
-      try {
-        const [testRes, questionsRes] = await Promise.all([
-          api.get(`/tests/${testId}/public`),
-          api.get(`/tests/${testId}/questions`, { token }),
-        ]);
-        setTestInfo(testRes.data);
-        setQuestions(questionsRes.data);
-        setTimeLeft(testRes.data.duree * 60); // minutes → secondes
-      } catch (err) {
-        console.error(err);
-        setError(err.response?.data?.error || 'Erreur de chargement');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, [testId, token]);
+    try {
+      const [testRes, questionsRes] = await Promise.all([
+        api.get(`/tests/${testId}/public`),
+        api.get(`/tests/${testId}/questions/candidate`, { 
+          params: { token } // Utilisez la nouvelle endpoint
+        }),
+      ]);
+      
+      setTestInfo(testRes.data);
+      setQuestions(questionsRes.data);
+      setTimeLeft(testRes.data.duree * 60);
+      
+      // Initialiser les réponses
+      const initialAnswers = {};
+      questionsRes.data.forEach(q => {
+        initialAnswers[q.id] = q.type === 'choix_multiple' ? [] : '';
+      });
+      setAnswers(initialAnswers);
+      
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.error || 'Erreur de chargement');
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchData();
+}, [testId, token]);
 
   // TIMER
   useEffect(() => {
@@ -79,13 +90,27 @@ export default function TestPage() {
   };
 
   const handleSubmit = async () => {
-    try {
-      await api.post(`/tests/${testId}/submit`, { token, answers });
-      navigate('/merci');
-    } catch {
-      alert('Erreur lors de la soumission');
-    }
-  };
+  try {
+    const formattedAnswers = Object.entries(answers).reduce((acc, [questionId, value]) => {
+      if (Array.isArray(value)) {
+        acc[questionId] = value.join(', '); // exemple: "A, B"
+      } else {
+        acc[questionId] = value.toString(); // "pgadmin" ou "vrai"
+      }
+      return acc;
+    }, {});
+
+    await api.post(`/tests/${testId}/submit`, {
+      token,
+      answers: formattedAnswers,
+    });
+
+    navigate('/merci');
+  } catch {
+    alert('Erreur lors de la soumission');
+  }
+};
+
 
   if (loading) return <div>Chargement…</div>;
   if (error) return <div className="text-red-600">{error}</div>;
