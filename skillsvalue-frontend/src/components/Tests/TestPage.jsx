@@ -8,34 +8,74 @@ export default function TestPage() {
   const token = searchParams.get('token');
   const navigate = useNavigate();
 
+  const [testInfo, setTestInfo] = useState(null);
   const [questions, setQuestions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState({});
+  const [error, setError] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(1); // en secondes
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchQuestions = async () => {
+    const fetchData = async () => {
       if (!token) {
         setError('Token manquant');
         setLoading(false);
         return;
       }
+
       try {
-        const res = await api.get(`/tests/${testId}/questions`, { token });
-        console.log(res.data);
-        
-        setQuestions(res.data);
+        const [testRes, questionsRes] = await Promise.all([
+          api.get(`/tests/${testId}/public`),
+          api.get(`/tests/${testId}/questions`, { token }),
+        ]);
+        setTestInfo(testRes.data);
+        setQuestions(questionsRes.data);
+        setTimeLeft(testRes.data.duree * 60); // minutes → secondes
       } catch (err) {
-        setError(err.response?.data?.error || 'Lien invalide ou expiré');
+        console.error(err);
+        setError(err.response?.data?.error || 'Erreur de chargement');
       } finally {
         setLoading(false);
       }
     };
-    fetchQuestions();
+    fetchData();
   }, [testId, token]);
+
+  // TIMER
+  useEffect(() => {
+    if (timeLeft <= 0) {
+      handleSubmit();
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timeLeft]);
+
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   const handleChange = (questionId, value) => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));
+  };
+
+  const handleNext = () => {
+    if (currentIdx < questions.length - 1) {
+      setCurrentIdx(currentIdx + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentIdx > 0) {
+      setCurrentIdx(currentIdx - 1);
+    }
   };
 
   const handleSubmit = async () => {
@@ -50,81 +90,98 @@ export default function TestPage() {
   if (loading) return <div>Chargement…</div>;
   if (error) return <div className="text-red-600">{error}</div>;
 
+  const currentQuestion = questions[currentIdx];
+
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-white shadow rounded">
-      <h1 className="text-2xl font-bold mb-6">Test #{testId}</h1>
-      {questions.map((q, idx) => (
-  <div key={q.id} className="mb-4">
-    <p className="font-semibold">{idx + 1}. {q.enonce}</p>
-    {q.type === 'vrai_faux' && (
-  <div className="mt-2">
-    <label className="mr-4">
-      <input
-        type="radio"
-        name={`vf-${q.id}`}
-        value="vrai"
-        checked={answers[q.id] === 'vrai'}
-        onChange={() => handleChange(q.id, 'vrai')}
-      />
-      <span className="ml-2">Vrai</span>
-    </label>
-    <label>
-      <input
-        type="radio"
-        name={`vf-${q.id}`}
-        value="faux"
-        checked={answers[q.id] === 'faux'}
-        onChange={() => handleChange(q.id, 'faux')}
-      />
-      <span className="ml-2">Faux</span>
-    </label>
-  </div>
-)}
-
-
-    {q.type === 'texte_libre' && (
-      <textarea
-        className="w-full border p-2 rounded mt-2"
-        rows={4}
-        value={answers[q.id] || ''}
-        onChange={e => handleChange(q.id, e.target.value)}
-      />
-    )}
-
-    {q.type === 'choix_multiple' && Array.isArray(q.options) && (
-      <div className="mt-2">
-        {q.options.map((option, i) => (
-          <label key={i} className="block">
-            <input
-              type="checkbox"
-              value={option}
-              checked={Array.isArray(answers[q.id]) && answers[q.id].includes(option)}
-              onChange={e => {
-                const selected = answers[q.id] || [];
-                if (e.target.checked) {
-                  handleChange(q.id, [...selected, option]);
-                } else {
-                  handleChange(
-                    q.id,
-                    selected.filter(opt => opt !== option)
-                  );
-                }
-              }}
-            />
-            <span className="ml-2">{option}</span>
-          </label>
-        ))}
+    <div className="max-w-2xl mx-auto p-6 bg-white shadow rounded">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-xl font-bold">Test: {testInfo?.titre}</h1>
+        <div className="text-red-600 font-mono text-lg">
+          ⏳ {formatTime(timeLeft)}
+        </div>
       </div>
-    )}
-  </div>
-))}
 
-      <button
-        onClick={handleSubmit}
-        className="mt-6 bg-green-600 text-white px-4 py-2 rounded"
-      >
-        Soumettre les réponses
-      </button>
+      <div className="mb-4">
+        <p className="font-semibold">{currentIdx + 1}. {currentQuestion.enonce}</p>
+
+        {currentQuestion.type === 'vrai_faux' && (
+          <div className="mt-2">
+            {['vrai', 'faux'].map(option => (
+              <label key={option} className="mr-4">
+                <input
+                  type="radio"
+                  name={`vf-${currentQuestion.id}`}
+                  value={option}
+                  checked={answers[currentQuestion.id] === option}
+                  onChange={() => handleChange(currentQuestion.id, option)}
+                />
+                <span className="ml-2 capitalize">{option}</span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        {currentQuestion.type === 'texte_libre' && (
+          <textarea
+            className="w-full border p-2 rounded mt-2"
+            rows={4}
+            value={answers[currentQuestion.id] || ''}
+            onChange={e => handleChange(currentQuestion.id, e.target.value)}
+          />
+        )}
+
+        {currentQuestion.type === 'choix_multiple' && Array.isArray(currentQuestion.options) && (
+          <div className="mt-2">
+            {currentQuestion.options.map((option, i) => (
+              <label key={i} className="block">
+                <input
+                  type="checkbox"
+                  value={option}
+                  checked={Array.isArray(answers[currentQuestion.id]) && answers[currentQuestion.id].includes(option)}
+                  onChange={e => {
+                    const selected = answers[currentQuestion.id] || [];
+                    if (e.target.checked) {
+                      handleChange(currentQuestion.id, [...selected, option]);
+                    } else {
+                      handleChange(
+                        currentQuestion.id,
+                        selected.filter(opt => opt !== option)
+                      );
+                    }
+                  }}
+                />
+                <span className="ml-2">{option}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-between mt-6">
+        <button
+          onClick={handlePrev}
+          disabled={currentIdx === 0}
+          className="bg-gray-300 px-4 py-2 rounded disabled:opacity-50"
+        >
+          Précédent
+        </button>
+
+        {currentIdx < questions.length - 1 ? (
+          <button
+            onClick={handleNext}
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Suivant
+          </button>
+        ) : (
+          <button
+            onClick={handleSubmit}
+            className="bg-green-600 text-white px-4 py-2 rounded"
+          >
+            Soumettre
+          </button>
+        )}
+      </div>
     </div>
   );
 }

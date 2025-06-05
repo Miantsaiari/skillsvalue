@@ -6,6 +6,7 @@ import TestDetail from './components/Tests/TestDetails';
 import Layout from './components/Layout/Layout';
 import TestStart from './components/Tests/TestStarts';
 import TestPage from './components/Tests/TestPage';
+import AdminResultPage from './components/Admin/AdminResultPage';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           </Route>
           <Route path="/tests/:testId/start" element={<TestStart />} />
           <Route path="/tests/:testId/page" element={<TestPage />} />
+          <Route path="/admin/tests/:testId/results/:token" element={<AdminResultPage />} />
         </Routes>
       </Router>
     </AuthProvider>
