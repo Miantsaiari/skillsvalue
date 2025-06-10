@@ -35,6 +35,7 @@ export default function Classement() {
         <thead className="bg-gray-100">
           <tr>
             <th className="p-2 border">Email</th>
+            <th className="p-2 border">Test</th>
             <th className="p-2 border">Score</th>
             <th className="p-2 border">Total</th>
           </tr>
@@ -43,6 +44,7 @@ export default function Classement() {
           {classements.map((c, index) => (
             <tr key={c.token}>
               <td className="p-2 border">{c.email}</td>
+              <td className="p-2 border">{c.test_titre}</td>
               <td className="p-2 border">{c.score}</td>
               <td className="p-2 border">{c.total}</td>
             </tr>

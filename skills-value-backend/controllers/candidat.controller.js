@@ -99,6 +99,7 @@ exports.getClassementGeneral = async (req, res) => {
       `SELECT 
         c.email,
         c.token,
+        t.titre AS test_titre,
         SUM(q.points) AS total,
         SUM(
           CASE 
@@ -106,6 +107,8 @@ exports.getClassementGeneral = async (req, res) => {
               (q.type = 'texte_libre' AND r.reponse = q.bonne_reponse)
               OR 
               (q.type = 'choix_multiple' AND r.reponse = q.bonne_reponse)
+              OR
+              (q.type = 'vrai_faux' AND r.reponse = q.bonne_reponse)
             ) 
             THEN q.points 
             ELSE 0 
@@ -116,7 +119,7 @@ exports.getClassementGeneral = async (req, res) => {
       JOIN question q ON q.id = r.question_id
       JOIN test t ON t.id = r.test_id
       WHERE t.admin_id = $1
-      GROUP BY c.email, c.token
+      GROUP BY c.email, c.token, t.titre
       ORDER BY score DESC`,
       [adminId]
     );

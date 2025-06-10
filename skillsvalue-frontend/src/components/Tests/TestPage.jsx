@@ -13,7 +13,7 @@ export default function TestPage() {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState({});
   const [error, setError] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(1); // en secondes
+  const [timeLeft, setTimeLeft] = useState(1); 
   const [loading, setLoading] = useState(true);
 
  useEffect(() => {
@@ -28,7 +28,7 @@ export default function TestPage() {
       const [testRes, questionsRes] = await Promise.all([
         api.get(`/tests/${testId}/public`),
         api.get(`/tests/${testId}/questions/candidate`, { 
-          params: { token } // Utilisez la nouvelle endpoint
+          params: { token } 
         }),
       ]);
       
@@ -93,9 +93,9 @@ export default function TestPage() {
   try {
     const formattedAnswers = Object.entries(answers).reduce((acc, [questionId, value]) => {
       if (Array.isArray(value)) {
-        acc[questionId] = value.join(', '); // exemple: "A, B"
+        acc[questionId] = value.join(', '); 
       } else {
-        acc[questionId] = value.toString(); // "pgadmin" ou "vrai"
+        acc[questionId] = value.toString(); 
       }
       return acc;
     }, {});
@@ -131,7 +131,7 @@ export default function TestPage() {
 
         {currentQuestion.type === 'vrai_faux' && (
           <div className="mt-2">
-            {['vrai', 'faux'].map(option => (
+            {['Vrai', 'Faux'].map(option => (
               <label key={option} className="mr-4">
                 <input
                   type="radio"

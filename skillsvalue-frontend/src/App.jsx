@@ -8,9 +8,12 @@ import TestStart from './components/Tests/TestStarts';
 import TestPage from './components/Tests/TestPage';
 import AdminResultPage from './components/Admin/AdminResultPage';
 import Classement from './components/Admin/Classement';
+import { NotificationProvider } from './contexts/Notificationcontext';
+import Notifications from './components/Admin/Notification';
 
 function App() {
   return (
+    <NotificationProvider>
     <AuthProvider>
       <Router>
         <Routes>
@@ -19,6 +22,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/classement" element={<Classement />} />
             <Route path="/tests/:id" element={<TestDetail />} />
+            <Route path='/notifications' element={<Notifications/>} />
             <Route path="/" element={<Dashboard />} />
           </Route>
           <Route path="/tests/:testId/start" element={<TestStart />} />
@@ -27,6 +31,7 @@ function App() {
         </Routes>
       </Router>
     </AuthProvider>
+    </NotificationProvider>
   );
 }
 

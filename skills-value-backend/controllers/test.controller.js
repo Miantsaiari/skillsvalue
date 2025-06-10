@@ -67,6 +67,7 @@ exports.getTestById = async (req, res) => {
   }
 };
 
+
 exports.submitTest = async (req, res) => {
   const testId = req.params.id;
   const { token, answers } = req.body;
@@ -79,19 +80,43 @@ exports.submitTest = async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Optionnel : supprimer les anciennes réponses de ce token pour ce test
+    // 1. Supprimer les anciennes réponses du candidat pour ce test
     await client.query(
       'DELETE FROM reponse WHERE test_id = $1 AND token = $2',
       [testId, token]
     );
 
-    // Insérer les nouvelles réponses
+    // 2. Enregistrer les nouvelles réponses
     for (const [questionId, reponse] of Object.entries(answers)) {
       await client.query(
         'INSERT INTO reponse (test_id, token, question_id, reponse) VALUES ($1, $2, $3, $4)',
         [testId, token, questionId, reponse]
       );
     }
+
+    // 3. Récupérer les informations du candidat
+    const candidatResult = await client.query(
+      'SELECT email FROM candidat WHERE token = $1',
+      [token]
+    );
+    const email = candidatResult.rows[0]?.email || 'Inconnu';
+
+    // 4. Récupérer le titre du test
+    const testResult = await client.query(
+      'SELECT titre FROM test WHERE id = $1',
+      [testId]
+    );
+    const titreTest = testResult.rows[0]?.titre || 'Test sans titre';
+
+    // 5. Émission de l’événement en temps réel
+    const io = req.app.get('io');
+    io.emit('new_submission', {
+      email,
+      testId,
+      token,
+      test: titreTest,
+      timestamp: new Date(),
+    });
 
     await client.query('COMMIT');
     res.status(200).json({ message: 'Réponses enregistrées avec succès' });
@@ -103,6 +128,7 @@ exports.submitTest = async (req, res) => {
     client.release();
   }
 };
+
 
 exports.getResultsByToken = async (req, res) => {
   const { testId, token } = req.params;

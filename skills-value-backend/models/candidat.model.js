@@ -21,6 +21,6 @@ exports.createCandidate = async (email, testId) => {
   
   return {
     candidate: result.rows[0],
-    invitationLink: `https://4bde-129-222-108-73.ngrok-free.app/tests/${testId}/start?token=${token}`
+    invitationLink: `http://localhost:5173/tests/${testId}/start?token=${token}`
   };
 };

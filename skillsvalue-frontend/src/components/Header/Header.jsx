@@ -1,9 +1,11 @@
 import useAuth from "../../hooks/useAuth";
 import { Link, useNavigate } from "react-router-dom";
+import { useNotification } from "../../contexts/Notificationcontext";
 
 export default function Header() {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const { unreadCount } = useNotification();
 
   return (
     <header className="bg-white shadow">
@@ -17,12 +19,16 @@ export default function Header() {
           >
             Tests
           </Link>
-          <Link
-            to="/notifications"
-            className="text-gray-700 hover:text-blue-600 font-medium"
-          >
-            Notifications
-          </Link>
+          <div className="relative">
+            <Link to="/notifications" className="text-gray-700 hover:text-blue-600 font-medium">
+              Notifications
+            </Link>
+            {unreadCount > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-2">
+                {unreadCount}
+              </span>
+            )}
+          </div>
           <Link
             to="/classement"
             className="text-gray-700 hover:text-blue-600 font-medium"
