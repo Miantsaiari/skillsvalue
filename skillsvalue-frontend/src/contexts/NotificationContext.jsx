@@ -1,34 +1,39 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { io } from "socket.io-client";
+import api from "../services/api";
 
 const NotificationContext = createContext();
 
-export function NotificationProvider({ children }) {
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+export const NotificationProvider = ({ children }) => {
+    const [notifications, setNotifications] = useState([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const accessToken = localStorage.getItem('access_token');
+
 
   useEffect(() => {
-    const socket = io("http://localhost:3001"); 
+  const accessToken = localStorage.getItem('access_token');
+  if (!accessToken) return; 
 
-    socket.on("new_submission", (data) => {
-      setNotifications((prev) => [data, ...prev]);
-      setUnreadCount((count) => count + 1);
-    });
+  api.get("/notifications")
+    .then(res => {
+      setNotifications(res.data);
+      const unread = res.data.filter(n => !n.is_read).length;
+      setUnreadCount(unread);
+    })
+    .catch(err => console.error("Erreur notifications", err));
+}, []);
 
-    return () => socket.disconnect();
-  }, []);
 
-  const markAsRead = () => setUnreadCount(0);
+  const markAsRead = async () => {
+    await api.post('/notifications/mark-read');
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    setUnreadCount(0);
+  };
 
   return (
-    <NotificationContext.Provider
-      value={{ notifications, unreadCount, markAsRead }}
-    >
+    <NotificationContext.Provider value={{ notifications, unreadCount, markAsRead }}>
       {children}
     </NotificationContext.Provider>
   );
-}
+};
 
-export function useNotification() {
-  return useContext(NotificationContext);
-}
+export const useNotification = () => useContext(NotificationContext);

@@ -32,7 +32,6 @@ exports.addQuestion = async (req, res) => {
 
 exports.getQuestions = async (req, res) => {
   try {
-    // Vérification des permissions
     const testOwnership = await pool.query(
       `SELECT t.id 
        FROM test t
@@ -55,7 +54,6 @@ exports.getQuestions = async (req, res) => {
 
 exports.getQuestionsForCandidate = async (req, res) => {
   try {
-    // 1. Vérifier le token du candidat
     const candidate = await pool.query(
       'SELECT test_id, question_order FROM candidat WHERE token = $1',
       [req.query.token]
@@ -65,7 +63,6 @@ exports.getQuestionsForCandidate = async (req, res) => {
       return res.status(403).json({ error: 'Token invalide' });
     }
     
-    // 2. Récupérer les questions dans l'ordre spécifique
     const testId = candidate.rows[0].test_id;
     const questionOrder = candidate.rows[0].question_order;
     

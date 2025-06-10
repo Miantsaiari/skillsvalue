@@ -108,6 +108,11 @@ exports.submitTest = async (req, res) => {
     );
     const titreTest = testResult.rows[0]?.titre || 'Test sans titre';
 
+    await client.query(
+  'INSERT INTO notifications (email, test, test_id, token) VALUES ($1, $2, $3, $4)',
+  [email, titreTest, testId, token]
+);
+
     // 5. Émission de l’événement en temps réel
     const io = req.app.get('io');
     io.emit('new_submission', {

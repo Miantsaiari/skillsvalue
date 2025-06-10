@@ -10,6 +10,7 @@ const testRoutes = require('./routes/test.routes');
 const questionRoutes = require('./routes/question.routes');
 const candidatRoutes = require('./routes/candidat.routes');
 const reponseRoutes = require('./routes/reponse.routes');
+const notifRoutes = require('./routes/notification.routes');
 
 const app = express();
 const server = http.createServer(app); // important pour socket.io
@@ -33,6 +34,7 @@ app.use(testRoutes);
 app.use('/api/tests', questionRoutes);
 app.use('/api/candidates', candidatRoutes);
 app.use(reponseRoutes);
+app.use('/api/notifications',notifRoutes);
 
 // Connexion Socket.IO
 io.on('connection', (socket) => {
