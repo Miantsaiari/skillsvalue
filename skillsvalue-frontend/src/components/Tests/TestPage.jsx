@@ -16,16 +16,13 @@ export default function TestPage() {
   const [timeLeft, setTimeLeft] = useState(1); 
   const [loading, setLoading] = useState(true);
 
-  // ⚠️ Anti-triche : protections front-end
   useEffect(() => {
-    // 1. Bloquer clic droit et sélection
     const disableRightClick = (e) => e.preventDefault();
     const disableSelection = () => document.body.style.userSelect = 'none';
 
     document.addEventListener('contextmenu', disableRightClick);
     disableSelection();
 
-    // 2. Bloquer certaines combinaisons clavier
     const blockKeys = (e) => {
       const keyCombo = `${e.ctrlKey ? 'Control+' : ''}${e.shiftKey ? 'Shift+' : ''}${e.key.toLowerCase()}`;
       const blockedCombos = [
@@ -39,14 +36,12 @@ export default function TestPage() {
       }
     };
 
-    // 3. Détecter changement d’onglet
     const handleBlur = () => {
-      alert("⚠️ Ne changez pas d'onglet !");
+      alert("Ne changez pas d'onglet !");
     };
 
-    // 4. Détecter déplacement souris hors fenêtre
     const handleMouseLeave = () => {
-      alert("⚠️ Ne quittez pas la page !");
+      alert("Ne quittez pas la page !");
     };
 
     document.addEventListener('keydown', blockKeys);
