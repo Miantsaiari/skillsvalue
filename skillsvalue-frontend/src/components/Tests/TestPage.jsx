@@ -16,44 +16,115 @@ export default function TestPage() {
   const [timeLeft, setTimeLeft] = useState(1); 
   const [loading, setLoading] = useState(true);
 
- useEffect(() => {
-  const fetchData = async () => {
-    if (!token) {
-      setError('Token manquant');
-      setLoading(false);
-      return;
-    }
+  // ⚠️ Anti-triche : protections front-end
+  useEffect(() => {
+    // 1. Bloquer clic droit et sélection
+    const disableRightClick = (e) => e.preventDefault();
+    const disableSelection = () => document.body.style.userSelect = 'none';
 
+    document.addEventListener('contextmenu', disableRightClick);
+    disableSelection();
+
+    // 2. Bloquer certaines combinaisons clavier
+    const blockKeys = (e) => {
+      const keyCombo = `${e.ctrlKey ? 'Control+' : ''}${e.shiftKey ? 'Shift+' : ''}${e.key.toLowerCase()}`;
+      const blockedCombos = [
+        'f12', 'printscreen',
+        'control+u', 'control+c', 'control+v', 'control+x',
+        'control+shift+i', 'control+shift+j'
+      ];
+      if (blockedCombos.includes(e.key.toLowerCase()) || blockedCombos.includes(keyCombo)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    // 3. Détecter changement d’onglet
+    const handleBlur = () => {
+      alert("⚠️ Ne changez pas d'onglet !");
+    };
+
+    // 4. Détecter déplacement souris hors fenêtre
+    const handleMouseLeave = () => {
+      alert("⚠️ Ne quittez pas la page !");
+    };
+
+    document.addEventListener('keydown', blockKeys);
+    window.addEventListener('blur', handleBlur);
+    document.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      document.removeEventListener('contextmenu', disableRightClick);
+      document.body.style.userSelect = 'auto';
+      document.removeEventListener('keydown', blockKeys);
+      window.removeEventListener('blur', handleBlur);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, []);
+
+  useEffect(() => {
+  const handleBlur = () => {
+    sendSuspicion('blur');
+  };
+
+  const handleMouseLeave = () => {
+    sendSuspicion('mouseleave');
+  };
+
+  const sendSuspicion = async (eventType) => {
     try {
-      const [testRes, questionsRes] = await Promise.all([
-        api.get(`/tests/${testId}/public`),
-        api.get(`/tests/${testId}/questions/candidate`, { 
-          params: { token } 
-        }),
-      ]);
-      
-      setTestInfo(testRes.data);
-      setQuestions(questionsRes.data);
-      setTimeLeft(testRes.data.duree * 60);
-      
-      // Initialiser les réponses
-      const initialAnswers = {};
-      questionsRes.data.forEach(q => {
-        initialAnswers[q.id] = q.type === 'choix_multiple' ? [] : '';
+      await api.post(`/tests/${testId}/suspicion`, {
+        token,
+        event: eventType
       });
-      setAnswers(initialAnswers);
-      
     } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.error || 'Erreur de chargement');
-    } finally {
-      setLoading(false);
+      console.error("Erreur suspicion:", err.message);
     }
   };
-  fetchData();
+
+  window.addEventListener('blur', handleBlur);
+  document.addEventListener('mouseleave', handleMouseLeave);
+
+  return () => {
+    window.removeEventListener('blur', handleBlur);
+    document.removeEventListener('mouseleave', handleMouseLeave);
+  };
 }, [testId, token]);
 
-  // TIMER
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!token) {
+        setError('Token manquant');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const [testRes, questionsRes] = await Promise.all([
+          api.get(`/tests/${testId}/public`),
+          api.get(`/tests/${testId}/questions/candidate`, { params: { token } }),
+        ]);
+
+        setTestInfo(testRes.data);
+        setQuestions(questionsRes.data);
+        setTimeLeft(testRes.data.duree * 60);
+
+        const initialAnswers = {};
+        questionsRes.data.forEach(q => {
+          initialAnswers[q.id] = q.type === 'choix_multiple' ? [] : '';
+        });
+        setAnswers(initialAnswers);
+
+      } catch (err) {
+        console.error(err);
+        setError(err.response?.data?.error || 'Erreur de chargement');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [testId, token]);
+
   useEffect(() => {
     if (timeLeft <= 0) {
       handleSubmit();
@@ -90,27 +161,22 @@ export default function TestPage() {
   };
 
   const handleSubmit = async () => {
-  try {
-    const formattedAnswers = Object.entries(answers).reduce((acc, [questionId, value]) => {
-      if (Array.isArray(value)) {
-        acc[questionId] = value.join(', '); 
-      } else {
-        acc[questionId] = value.toString(); 
-      }
-      return acc;
-    }, {});
+    try {
+      const formattedAnswers = Object.entries(answers).reduce((acc, [questionId, value]) => {
+        acc[questionId] = Array.isArray(value) ? value.join(', ') : value.toString();
+        return acc;
+      }, {});
 
-    await api.post(`/tests/${testId}/submit`, {
-      token,
-      answers: formattedAnswers,
-    });
+      await api.post(`/tests/${testId}/submit`, {
+        token,
+        answers: formattedAnswers,
+      });
 
-    navigate('/merci');
-  } catch {
-    alert('Erreur lors de la soumission');
-  }
-};
-
+      navigate('/merci');
+    } catch {
+      alert('Erreur lors de la soumission');
+    }
+  };
 
   if (loading) return <div>Chargement…</div>;
   if (error) return <div className="text-red-600">{error}</div>;

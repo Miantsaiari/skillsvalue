@@ -25,5 +25,7 @@ module.exports = {
       [testId]
     );
     return result.rows;
-  }
+  },
+
 };
+

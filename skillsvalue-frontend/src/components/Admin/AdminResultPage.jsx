@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../../services/api';
+import AdminSuspicionPage from './AdminSuspicionPage';
 
 const AdminResultPage = () => {
   const { testId, token } = useParams();
@@ -34,6 +35,8 @@ const AdminResultPage = () => {
       <p className="mb-2"><strong>Score :</strong> {result.pointsObtenus} / {result.totalPoints} ({result.scorePourcentage}%)</p>
 
       <div className="overflow-x-auto mt-6">
+        <AdminSuspicionPage testId={testId} token={token} />
+
         <table className="min-w-full border">
           <thead className="bg-gray-100">
             <tr>

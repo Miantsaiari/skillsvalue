@@ -10,6 +10,7 @@ import AdminResultPage from './components/Admin/AdminResultPage';
 import Classement from './components/Admin/Classement';
 import { NotificationProvider } from './contexts/Notificationcontext';
 import Notifications from './components/Admin/Notification';
+import AdminSuspicionPage from './components/Admin/AdminSuspicionPage';
 
 function App() {
   return (
@@ -24,6 +25,8 @@ function App() {
             <Route path="/tests/:id" element={<TestDetail />} />
             <Route path='/notifications' element={<Notifications/>} />
             <Route path="/" element={<Dashboard />} />
+            <Route path="/admin/suspicions" element={<AdminSuspicionPage />} />
+
           </Route>
           <Route path="/tests/:testId/start" element={<TestStart />} />
           <Route path="/tests/:testId/page" element={<TestPage />} />
