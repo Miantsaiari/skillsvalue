@@ -31,7 +31,7 @@ router.post('/api/tests/:testId/suspicion', async (req, res) => {
   }
 });
 
-module.exports = router;
+
 
 
 router.get('/api/tests/:testId/verify-submission', async (req, res) => {

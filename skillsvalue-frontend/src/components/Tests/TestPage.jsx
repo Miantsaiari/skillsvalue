@@ -102,7 +102,9 @@ export default function TestPage() {
 
         setTestInfo(testRes.data);
         setQuestions(questionsRes.data);
-        setTimeLeft(testRes.data.duree * 60);
+        const savedTime = localStorage.getItem(`timeLeft-${testId}-${token}`);
+        setTimeLeft(savedTime ? parseInt(savedTime, 10) : testRes.data.duree * 60);
+
 
         const initialAnswers = {};
         questionsRes.data.forEach(q => {
@@ -120,18 +122,23 @@ export default function TestPage() {
     fetchData();
   }, [testId, token]);
 
-  useEffect(() => {
-    if (timeLeft <= 0) {
-      handleSubmit();
-      return;
-    }
+ useEffect(() => {
+  if (timeLeft <= 0) {
+    handleSubmit();
+    return;
+  }
 
-    const interval = setInterval(() => {
-      setTimeLeft(prev => prev - 1);
-    }, 1000);
+  const interval = setInterval(() => {
+    setTimeLeft((prev) => {
+      const newTime = prev - 1;
+      localStorage.setItem(`timeLeft-${testId}-${token}`, newTime); // 🔁 sauvegarde à chaque tick
+      return newTime;
+    });
+  }, 1000);
 
-    return () => clearInterval(interval);
-  }, [timeLeft]);
+  return () => clearInterval(interval);
+}, [timeLeft]);
+
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);

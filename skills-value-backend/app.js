@@ -11,6 +11,7 @@ const questionRoutes = require('./routes/question.routes');
 const candidatRoutes = require('./routes/candidat.routes');
 const reponseRoutes = require('./routes/reponse.routes');
 const notifRoutes = require('./routes/notification.routes');
+const generatorRoutes = require('./routes/generator.routes');
 
 const app = express();
 const server = http.createServer(app); // important pour socket.io
@@ -35,6 +36,7 @@ app.use('/api/tests', questionRoutes);
 app.use('/api/candidates', candidatRoutes);
 app.use(reponseRoutes);
 app.use('/api/notifications',notifRoutes);
+app.use(generatorRoutes);
 
 // Connexion Socket.IO
 io.on('connection', (socket) => {

@@ -3,7 +3,7 @@ import api from '../../services/api';
 import PrivateRoute from '../Auth/PrivateRoute';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link } from 'react-router-dom';
-import { Share2 } from 'lucide-react'; // Icône de partage
+import { Share2 } from 'lucide-react';
 
 export default function Dashboard() {
   const { logout } = useAuth();
@@ -69,6 +69,36 @@ export default function Dashboard() {
     }
   };
 
+   // Nouvelle fonction pour générer les tests via l'API interview
+  const handleGenerateTests = async () => {
+  try {
+    const tech = prompt("Quelle technologie pour générer les questions ? (ex: react)"); 
+    if (!tech) return;
+
+    setMessage('Génération des tests en cours...');
+
+    // Appel à l'API backend
+    const response = await api.get(`/interview?tech=${encodeURIComponent(tech)}`);
+
+    const data = response.data;
+
+    const generatedTest = {
+      titre: data.title || `Test Interview ${tech}`,
+      description: `Questions générées automatiquement sur ${tech}`,
+      duree: 60,
+      questions: data.questions || [],
+    };
+
+    // Ajouter le test généré dans la liste
+    setTests(prev => [...prev, generatedTest]);
+    setMessage('Tests générés et ajoutés avec succès !');
+  } catch (error) {
+    console.error(error);
+    setMessage('Erreur lors de la génération des tests');
+  }
+};
+
+
   return (
     <PrivateRoute>
       <div className="min-h-screen bg-gray-100">
@@ -77,12 +107,19 @@ export default function Dashboard() {
             <div className="mb-4 p-2 bg-blue-100 text-blue-800 rounded">{message}</div>
           )}
 
-          <div className="mb-6">
+          <div className="mb-6 flex space-x-4">
             <button
               onClick={() => setShowForm(!showForm)}
               className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
             >
               {showForm ? 'Annuler' : 'Créer un nouveau test'}
+            </button>
+
+            <button
+              onClick={handleGenerateTests}
+              className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
+            >
+              Générer des tests
             </button>
           </div>
 
@@ -123,17 +160,29 @@ export default function Dashboard() {
           )}
 
           <div className="space-y-6">
-            {tests.map((test) => (
-              <div key={test.id} className="bg-white p-4 rounded shadow flex justify-between items-start">
+            {tests.map((test, index) => (
+              <div key={test.id ?? index} className="bg-white p-4 rounded shadow flex justify-between items-start">
                 <div>
                   <Link
-                    to={`/tests/${test.id}`}
+                    to={`/tests/${test.id ?? ''}`}
                     className="text-lg font-bold text-blue-600 hover:underline"
                   >
                     {test.titre}
                   </Link>
                   <p className="text-sm text-gray-600 mb-2">{test.description}</p>
                   <p className="text-sm mb-4">Durée : {test.duree} minutes</p>
+
+                  {/* Affichage optionnel des questions générées */}
+                  {test.questions && test.questions.length > 0 && (
+                    <div className="mt-2 text-xs text-gray-700 max-h-40 overflow-y-auto border p-2 rounded bg-gray-50">
+                      <strong>Questions générées :</strong>
+                      <ul className="list-disc pl-5">
+                        {test.questions.map((q, i) => (
+                          <li key={i}>{q}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => openInviteModal(test.id)}
