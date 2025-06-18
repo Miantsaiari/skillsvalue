@@ -174,7 +174,7 @@ exports.getResultsByToken = async (req, res) => {
 
       let estCorrect = false;
 
-      // Comparaison adaptée pour les types différents (string, choix multiples, etc.)
+      // Comparaison adaptée pour les types différents (texte_libre,vrai ou faux, choix multiples, etc.)
       if (typeof bonneReponse === 'string' && typeof reponseCandidat === 'string') {
         estCorrect = bonneReponse.trim() === reponseCandidat.trim();
       } else if (Array.isArray(bonneReponse) && Array.isArray(reponseCandidat)) {

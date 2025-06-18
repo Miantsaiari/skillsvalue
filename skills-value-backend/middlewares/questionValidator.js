@@ -14,9 +14,19 @@ module.exports = {
       .withMessage('L\'énoncé ne doit pas dépasser 1000 caractères'),
       
     body('options')
-      .if(body('type').equals('choix_multiple'))
-      .isArray({ min: 2, max: 5 })
-      .withMessage('2 à 5 options requises pour les QCM'),
+      .custom((value, { req }) => {
+        if (req.body.type === 'choix_multiple') {
+          try {
+            const options = JSON.parse(value);
+            if (!Array.isArray(options) || options.length < 2 || options.length > 5) {
+              throw new Error('2 à 5 options requises pour les QCM');
+            }
+          } catch (e) {
+            throw new Error('Options invalides');
+          }
+        }
+        return true;
+      }),
       
     body('bonne_reponse')
       .if(body('type').not().equals('texte_libre'))

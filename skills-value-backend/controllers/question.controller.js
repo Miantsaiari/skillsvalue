@@ -3,9 +3,27 @@ const { validationResult } = require('express-validator');
 const pool = require('../db');
 
 exports.addQuestion = async (req, res) => {
+  if (typeof req.body.options === 'string') {
+    try {
+      req.body.options = JSON.parse(req.body.options);
+    } catch (e) {
+      return res.status(400).json({ 
+        error: 'Format des options invalide',
+        details: 'Les options doivent être un tableau JSON valide'
+      });
+    }
+  }
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    return res.status(400).json({ 
+      errors: errors.array(),
+      message: "Validation failed",
+      receivedData: { // Ajout pour débogage
+        body: req.body,
+        files: req.files ? req.files.map(f => f.originalname) : null
+      }
+    });
   }
 
   try {
@@ -18,15 +36,33 @@ exports.addQuestion = async (req, res) => {
       return res.status(403).json({ error: 'Non autorisé' });
     }
 
+    const questionData = {
+      ...req.body,
+      images: req.files || []
+    };
+
+    // Debug: log the incoming data
+    console.log('Question data:', {
+      body: req.body,
+      files: req.files ? req.files.map(f => ({
+        originalname: f.originalname,
+        size: f.size,
+        mimetype: f.mimetype
+      })) : 'No files'
+    });
+
     const question = await Question.createQuestion(
       req.params.testId,
-      req.body
+      questionData
     );
 
     res.status(201).json(question);
   } catch (err) {
     console.error('Erreur ajout question:', err);
-    res.status(500).json({ error: 'Erreur serveur' });
+    res.status(500).json({ 
+      error: 'Erreur serveur',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 

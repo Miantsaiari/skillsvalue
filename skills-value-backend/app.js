@@ -3,6 +3,7 @@ require('dotenv').config();
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io'); // socket.io ajouté ici
+const fs = require('fs');
 
 const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
@@ -12,9 +13,11 @@ const candidatRoutes = require('./routes/candidat.routes');
 const reponseRoutes = require('./routes/reponse.routes');
 const notifRoutes = require('./routes/notification.routes');
 const generatorRoutes = require('./routes/generator.routes');
+const path=require('path');
 
 const app = express();
 const server = http.createServer(app); // important pour socket.io
+
 const io = new Server(server, {
   cors: {
     origin: "*", // autorise tous les domaines pour les tests
@@ -27,6 +30,15 @@ app.set('io', io);
 // CORS et JSON
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res, filePath) => {
+    // Désactive le cache pour le débogage
+    res.set('Cache-Control', 'no-store');
+    
+    // Force les headers CORS si nécessaire
+    res.set('Access-Control-Allow-Origin', '*');
+  }
+}));
 
 // Routes
 app.use(adminRoutes);
