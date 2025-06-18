@@ -197,6 +197,24 @@ export default function TestPage() {
       <div className="mb-4">
         <p className="font-semibold">{currentIdx + 1}. {currentQuestion.enonce}</p>
 
+        {currentQuestion.images && currentQuestion.images.length > 0 && (
+          <div className="my-4 space-y-3">
+            {currentQuestion.images.map((img, index) => (
+              <div key={index} className="bg-gray-50 p-2 rounded-lg border">
+                <img
+                  src={`http://localhost:3001${img}`}
+                  alt={`Illustration question ${currentIdx + 1}`}
+                  className="mx-auto max-h-64 object-contain"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/600x400?text=Image+Non+Disponible';
+                    e.target.className = 'mx-auto h-64 bg-gray-100 p-4 text-center';
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
         {currentQuestion.type === 'vrai_faux' && (
           <div className="mt-2">
             {['Vrai', 'Faux'].map(option => (
