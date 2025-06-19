@@ -2,10 +2,24 @@ import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import Editor from 'react-simple-code-editor';
-import { highlight, languages } from 'prismjs';
+import Prism from 'prismjs';
 import 'prismjs/components/prism-clike';
 import 'prismjs/components/prism-javascript';
 import 'prismjs/themes/prism.css';
+import 'prismjs/components/prism-python';
+import 'prismjs/components/prism-java';
+import 'prismjs/components/prism-c';
+import 'prismjs/components/prism-cpp';
+import 'prismjs/components/prism-csharp';
+import 'prismjs/components/prism-markup-templating';
+import "prismjs/components/prism-php";
+import 'prismjs/components/prism-ruby';
+import 'prismjs/components/prism-swift';
+import 'prismjs/components/prism-kotlin';
+import 'prismjs/components/prism-go';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-sql';
+import { highlight, languages } from 'prismjs';
 
 export default function TestDetails() {
   const { id } = useParams();
@@ -15,9 +29,10 @@ export default function TestDetails() {
   const [question, setQuestion] = useState({
   type: 'choix_multiple',
   enonce: '',
-  options: [], // Tableau d'options
-  currentOption: '', // Option en cours d'édition
-  currentCodeOption: '', // Code option en cours d'édition
+  options: [],
+  currentOption: '',
+  currentCodeOption: '',
+  currentLanguage: 'javascript', // Nouveau champ
   bonne_reponse: '',
   points: 1,
   images: []
@@ -39,7 +54,8 @@ export default function TestDetails() {
   if (question.currentOption.trim() || question.currentCodeOption.trim()) {
     const newOption = {
       text: question.currentOption.trim(),
-      code: question.currentCodeOption.trim()
+      code: question.currentCodeOption.trim(),
+      language: question.currentLanguage // Sauvegarde le langage
     };
     
     setQuestion({
@@ -101,12 +117,10 @@ const removeOption = (index) => {
       if (Array.isArray(question.options)) {
         // Nouveau format avec code
         optionsToSend = question.options.map(opt => {
-          if (opt.code) {
-            // Format: "texte```code```" pour les options avec code
-            return opt.text ? `${opt.text}\n\`\`\`\n${opt.code}\n\`\`\`` : `\`\`\`\n${opt.code}\n\`\`\``;
-          }
-          return opt.text;
-        });
+  return opt.code ? 
+    `${opt.text || ''}\n\`\`\`${opt.language}\n${opt.code}\n\`\`\`` : 
+    opt.text;
+});
       } else {
         // Ancien format (string séparée par virgules)
         optionsToSend = question.options.split(',').map(opt => opt.trim());
@@ -153,6 +167,21 @@ const removeOption = (index) => {
   } catch (err) {
     console.error('Erreur détaillée:', err.response?.data);
     setMessage(`Erreur: ${err.response?.data?.errors?.[0]?.msg || err.response?.data?.message || err.message}`);
+  }
+};
+
+const safeHighlight = (code, language) => {
+  // Vérifie d'abord si le langage est disponible
+  if (!language || !Prism.languages[language]) {
+    console.warn(`Language ${language} not loaded, falling back to plain text`);
+    return code; // Retourne le code sans coloration
+  }
+
+  try {
+    return Prism.highlight(code, Prism.languages[language], language);
+  } catch (error) {
+    console.error(`Error highlighting ${language} code:`, error);
+    return code; // Fallback en cas d'erreur
   }
 };
 
@@ -205,18 +234,43 @@ const removeOption = (index) => {
     
     {/* Éditeur de code pour le contenu de l'option */}
     <div className="border rounded bg-gray-50">
-      <Editor
-        value={question.currentCodeOption}
-        onValueChange={(code) => setQuestion({...question, currentCodeOption: code})}
-        highlight={code => highlight(code, languages.js, 'javascript')}
-        padding={10}
-        style={{
-          fontFamily: '"Fira code", "Fira Mono", monospace',
-          fontSize: 14,
-          minHeight: '100px'
-        }}
-        placeholder="Entrez le code pour cette option (optionnel)"
-      />
+      <div className="space-y-2">
+  <div className="flex items-center space-x-2">
+    <label className="text-sm font-medium text-gray-700">Langage :</label>
+    <select
+      value={question.currentLanguage}
+      onChange={(e) => setQuestion({...question, currentLanguage: e.target.value})}
+      className="border rounded px-2 py-1 text-sm"
+    >
+      <option value="javascript">JavaScript</option>
+      <option value="python">Python</option>
+      <option value="java">Java</option>
+      <option value="c">C</option>
+      <option value="cpp">C++</option>
+      <option value="csharp">C#</option>
+      <option value="php">PHP</option>
+      <option value="ruby">Ruby</option>
+      <option value="swift">Swift</option>
+      <option value="kotlin">Kotlin</option>
+      <option value="go">Go</option>
+      <option value="typescript">TypeScript</option>
+      <option value="sql">SQL</option>
+    </select>
+  </div>
+
+  <Editor
+  value={question.currentCodeOption}
+  onValueChange={(code) => setQuestion({...question, currentCodeOption: code})}
+  highlight={code => safeHighlight(code, question.currentLanguage)}
+  padding={10}
+  style={{
+    fontFamily: '"Fira code", "Fira Mono", monospace',
+    fontSize: 14,
+    minHeight: '100px'
+  }}
+  placeholder={`Entrez votre code ${question.currentLanguage} ici...`}
+/>
+</div>
     </div>
     
     <button
@@ -230,26 +284,39 @@ const removeOption = (index) => {
     {/* Liste des options ajoutées */}
     <div className="mt-3 space-y-2">
       {question.options.map((option, index) => (
-        <div key={index} className="border p-3 rounded bg-white group">
-          <div className="flex justify-between items-start">
-            <div>
-              {option.text && <p className="font-medium">{option.text}</p>}
-              {option.code && (
-                <pre className="bg-gray-100 p-2 rounded mt-1 text-sm overflow-x-auto">
-                  <code>{option.code}</code>
-                </pre>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => removeOption(index)}
-              className="text-red-500 opacity-0 group-hover:opacity-100"
-            >
-              ×
-            </button>
+  <div key={index} className="border p-3 rounded bg-white group">
+    <div className="flex justify-between items-start">
+      <div>
+        {option.text && <p className="font-medium">{option.text}</p>}
+        {option.code && (
+          <div className="mt-2">
+            <pre className="bg-gray-100 p-2 rounded text-sm overflow-x-auto">
+              <Editor
+  value={option.code}
+  onValueChange={() => {}}
+  highlight={code => safeHighlight(code, option.language)}
+  padding={8}
+  style={{
+    fontFamily: '"Fira code", "Fira Mono", monospace',
+    fontSize: 12,
+    backgroundColor: 'transparent',
+    pointerEvents: 'none'
+  }}
+/>
+            </pre>
           </div>
-        </div>
-      ))}
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => removeOption(index)}
+        className="text-red-500 opacity-0 group-hover:opacity-100"
+      >
+        ×
+      </button>
+    </div>
+  </div>
+))}
     </div>
     
     {/* Champ pour la bonne réponse */}
@@ -347,13 +414,13 @@ const removeOption = (index) => {
           <p className="font-medium">Options :</p>
           <ul className="list-disc pl-6">
             {q.options && q.options.map((opt, index) => {
-  // Détection du code dans l'option (format: texte```code```)
   const hasCode = typeof opt === 'string' && opt.includes('```');
   
   if (hasCode) {
-    const parts = opt.split('```');
-    const textPart = parts[0].trim();
-    const codePart = parts[1].trim();
+    // Modification ici pour gérer le nouveau format avec langage
+    const match = opt.match(/(.*?)\n?```[a-z]*\n([\s\S]*?)\n```/);
+    const textPart = match ? match[1].trim() : '';
+    const codePart = match ? match[2].trim() : '';
     
     return (
       <li key={index}>

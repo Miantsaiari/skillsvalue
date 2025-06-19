@@ -22,16 +22,17 @@ export default function TestPage() {
   const [loading, setLoading] = useState(true);
 
   const parseOption = (option) => {
-    if (typeof option !== 'string') return { text: option, code: null };
-    
-    const codeMatch = option.match(/(.*?)```([\s\S]*?)```/);
-    if (!codeMatch) return { text: option, code: null };
-    
-    return {
-      text: codeMatch[1].trim(),
-      code: codeMatch[2].trim()
-    };
+  if (typeof option !== 'string') return { text: option, code: null };
+  
+  const codeMatch = option.match(/(.*?)\n?```([a-z]*)\n([\s\S]*?)\n```/);
+  if (!codeMatch) return { text: option, code: null };
+  
+  return {
+    text: codeMatch[1].trim(),
+    code: codeMatch[3].trim(),
+    language: codeMatch[2] || 'javascript'
   };
+};
 
   useEffect(() => {
     const disableRightClick = (e) => e.preventDefault();
@@ -259,62 +260,62 @@ export default function TestPage() {
         )}
 
         {currentQuestion.type === 'choix_multiple' && Array.isArray(currentQuestion.options) && (
-          <div className="mt-2">
-            {currentQuestion.type === 'choix_multiple' && Array.isArray(currentQuestion.options) && (
-          <div className="mt-2 space-y-3">
-            {currentQuestion.options.map((option, i) => {
-              const parsedOption = parseOption(option);
-              const optionValue = parsedOption.code ? `${parsedOption.text || ''}\n\`\`\`\n${parsedOption.code}\n\`\`\`` : parsedOption.text;
-              
-              return (
-                <label key={i} className="block p-3 border rounded hover:bg-gray-50">
-                  <div className="flex items-start">
-                    <input
-                      type="checkbox"
-                      value={optionValue}
-                      checked={Array.isArray(answers[currentQuestion.id]) && 
-                               answers[currentQuestion.id].includes(optionValue)}
-                      onChange={e => {
-                        const selected = answers[currentQuestion.id] || [];
-                        if (e.target.checked) {
-                          handleChange(currentQuestion.id, [...selected, optionValue]);
-                        } else {
-                          handleChange(
-                            currentQuestion.id,
-                            selected.filter(opt => opt !== optionValue)
-                          );
-                        }
-                      }}
-                      className="mt-1"
-                    />
-                    
-                    <div className="ml-2 flex-1">
-                      {parsedOption.text && <p className="mb-1">{parsedOption.text}</p>}
-                      {parsedOption.code && (
-                        <div className="bg-gray-100 p-2 rounded text-sm overflow-x-auto">
-                          <Editor
-                            value={parsedOption.code}
-                            onValueChange={() => {}}
-                            highlight={code => highlight(code, languages.js, 'javascript')}
-                            padding={8}
-                            style={{
-                              fontFamily: '"Fira code", "Fira Mono", monospace',
-                              fontSize: 12,
-                              backgroundColor: 'transparent',
-                              pointerEvents: 'none' // Rend l'éditeur non éditable
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </label>
-              );
-            })}
+  <div className="mt-2 space-y-3">
+    {currentQuestion.options.map((option, i) => {
+      const parsedOption = parseOption(option);
+      
+      // Utilisez l'index comme valeur pour éviter les conflits
+      const optionValue = i.toString();
+      
+      return (
+        <label key={i} className="block p-3 border rounded hover:bg-gray-50">
+          <div className="flex items-start">
+            <input
+              type="checkbox"
+              value={optionValue}
+              checked={Array.isArray(answers[currentQuestion.id]) && 
+                       answers[currentQuestion.id].includes(optionValue)}
+              onChange={e => {
+                const selected = answers[currentQuestion.id] || [];
+                if (e.target.checked) {
+                  handleChange(currentQuestion.id, [...selected, optionValue]);
+                } else {
+                  handleChange(
+                    currentQuestion.id,
+                    selected.filter(opt => opt !== optionValue)
+                  );
+                }
+              }}
+              className="mt-1"
+            />
+            
+            <div className="ml-2 flex-1">
+              {/* Affiche soit le texte simple, soit le code */}
+              {parsedOption.code ? (
+                <div className="bg-gray-100 p-2 rounded text-sm overflow-x-auto">
+                  <Editor
+                    value={parsedOption.code}
+                    onValueChange={() => {}}
+                    highlight={code => highlight(code, languages[parsedOption.language] || languages.javascript, parsedOption.language || 'javascript')}
+                    padding={8}
+                    style={{
+                      fontFamily: '"Fira code", "Fira Mono", monospace',
+                      fontSize: 12,
+                      backgroundColor: 'transparent',
+                      pointerEvents: 'none'
+                    }}
+                  />
+                </div>
+              ) : (
+                <span>{parsedOption.text}</span>
+              )}
+            </div>
           </div>
-        )}
-          </div>
-        )}
+        </label>
+      );
+    })}
+  </div>
+)}
       </div>
 
       <div className="flex justify-between mt-6">
