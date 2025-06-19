@@ -7,39 +7,47 @@ module.exports = {
   async createQuestion(testId, questionData) {
   const { type, enonce, options, bonne_reponse, points, images } = questionData;
   
-  // Traitement des images inchangé
+  // Traitement des images
   let imagePaths = [];
   if (images && images.length > 0) {
-    const uploadDir = path.join(__dirname, '../uploads/questions');
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-    
-    for (const image of images) {
+    imagePaths = await Promise.all(images.map(async (image) => {
+      const uploadDir = path.join(__dirname, '..', 'uploads', 'questions');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      
       const ext = path.extname(image.originalname);
       const filename = `${uuidv4()}${ext}`;
-      const filePath = path.join(uploadDir, filename);
-      await fs.promises.writeFile(filePath, image.buffer);
-      imagePaths.push(`/uploads/questions/${filename}`);
-    }
+      const filepath = path.join(uploadDir, filename);
+      
+      await fs.promises.writeFile(filepath, image.buffer);
+      return `/uploads/questions/${filename}`;
+    }));
   }
 
-  // Conversion sécurisée en JSON
-  const imagesForDb = imagePaths.length > 0 
-    ? JSON.stringify(imagePaths)
+  // Conversion du tableau d'images en format PostgreSQL
+  const pgArray = imagePaths.length > 0 
+    ? `{${imagePaths.map(path => `"${path}"`).join(',')}}` 
     : null;
 
   const result = await pool.query(
     `INSERT INTO question (
-      test_id, type, enonce, options, bonne_reponse, points, images
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7) 
-     RETURNING *`,
-    [
-      testId,
-      type,
-      enonce,
-      options ? JSON.stringify(options) : null,
+      test_id, 
+      type, 
+      enonce, 
+      options, 
       bonne_reponse,
+      points,
+      images
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [
+      testId, 
+      type, 
+      enonce, 
+      JSON.stringify(options), 
+      bonne_reponse, 
       points || 1,
-      imagesForDb
+      pgArray // Utilisation du format PostgreSQL pour les tableaux
     ]
   );
 
