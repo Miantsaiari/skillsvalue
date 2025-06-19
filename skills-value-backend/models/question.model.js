@@ -7,7 +7,6 @@ module.exports = {
   async createQuestion(testId, questionData) {
   const { type, enonce, options, bonne_reponse, points, images } = questionData;
   
-  // Traitement des images
   let imagePaths = [];
   if (images && images.length > 0) {
     imagePaths = await Promise.all(images.map(async (image) => {
