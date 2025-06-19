@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
+import Editor from 'react-simple-code-editor';
+import { highlight, languages } from 'prismjs';
+import 'prismjs/components/prism-clike';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/themes/prism.css';
 
 export default function TestPage() {
   const { testId } = useParams();
@@ -15,6 +20,18 @@ export default function TestPage() {
   const [error, setError] = useState(null);
   const [timeLeft, setTimeLeft] = useState(1); 
   const [loading, setLoading] = useState(true);
+
+  const parseOption = (option) => {
+    if (typeof option !== 'string') return { text: option, code: null };
+    
+    const codeMatch = option.match(/(.*?)```([\s\S]*?)```/);
+    if (!codeMatch) return { text: option, code: null };
+    
+    return {
+      text: codeMatch[1].trim(),
+      code: codeMatch[2].trim()
+    };
+  };
 
   useEffect(() => {
     const disableRightClick = (e) => e.preventDefault();
@@ -243,27 +260,59 @@ export default function TestPage() {
 
         {currentQuestion.type === 'choix_multiple' && Array.isArray(currentQuestion.options) && (
           <div className="mt-2">
-            {currentQuestion.options.map((option, i) => (
-              <label key={i} className="block">
-                <input
-                  type="checkbox"
-                  value={option}
-                  checked={Array.isArray(answers[currentQuestion.id]) && answers[currentQuestion.id].includes(option)}
-                  onChange={e => {
-                    const selected = answers[currentQuestion.id] || [];
-                    if (e.target.checked) {
-                      handleChange(currentQuestion.id, [...selected, option]);
-                    } else {
-                      handleChange(
-                        currentQuestion.id,
-                        selected.filter(opt => opt !== option)
-                      );
-                    }
-                  }}
-                />
-                <span className="ml-2">{option}</span>
-              </label>
-            ))}
+            {currentQuestion.type === 'choix_multiple' && Array.isArray(currentQuestion.options) && (
+          <div className="mt-2 space-y-3">
+            {currentQuestion.options.map((option, i) => {
+              const parsedOption = parseOption(option);
+              const optionValue = parsedOption.code ? `${parsedOption.text || ''}\n\`\`\`\n${parsedOption.code}\n\`\`\`` : parsedOption.text;
+              
+              return (
+                <label key={i} className="block p-3 border rounded hover:bg-gray-50">
+                  <div className="flex items-start">
+                    <input
+                      type="checkbox"
+                      value={optionValue}
+                      checked={Array.isArray(answers[currentQuestion.id]) && 
+                               answers[currentQuestion.id].includes(optionValue)}
+                      onChange={e => {
+                        const selected = answers[currentQuestion.id] || [];
+                        if (e.target.checked) {
+                          handleChange(currentQuestion.id, [...selected, optionValue]);
+                        } else {
+                          handleChange(
+                            currentQuestion.id,
+                            selected.filter(opt => opt !== optionValue)
+                          );
+                        }
+                      }}
+                      className="mt-1"
+                    />
+                    
+                    <div className="ml-2 flex-1">
+                      {parsedOption.text && <p className="mb-1">{parsedOption.text}</p>}
+                      {parsedOption.code && (
+                        <div className="bg-gray-100 p-2 rounded text-sm overflow-x-auto">
+                          <Editor
+                            value={parsedOption.code}
+                            onValueChange={() => {}}
+                            highlight={code => highlight(code, languages.js, 'javascript')}
+                            padding={8}
+                            style={{
+                              fontFamily: '"Fira code", "Fira Mono", monospace',
+                              fontSize: 12,
+                              backgroundColor: 'transparent',
+                              pointerEvents: 'none' // Rend l'éditeur non éditable
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        )}
           </div>
         )}
       </div>

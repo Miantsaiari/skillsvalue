@@ -1,6 +1,11 @@
 import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
+import Editor from 'react-simple-code-editor';
+import { highlight, languages } from 'prismjs';
+import 'prismjs/components/prism-clike';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/themes/prism.css';
 
 export default function TestDetails() {
   const { id } = useParams();
@@ -8,13 +13,15 @@ export default function TestDetails() {
   const [questions, setQuestions] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [question, setQuestion] = useState({
-    type: 'choix_multiple',
-    enonce: '',
-    options: '',
-    bonne_reponse: '',
-    points: 1,
-    images: []
-  });
+  type: 'choix_multiple',
+  enonce: '',
+  options: [], // Tableau d'options
+  currentOption: '', // Option en cours d'édition
+  currentCodeOption: '', // Code option en cours d'édition
+  bonne_reponse: '',
+  points: 1,
+  images: []
+});
   const [message, setMessage] = useState('');
   const [previewImages, setPreviewImages] = useState([]);
 
@@ -27,6 +34,28 @@ export default function TestDetails() {
     };
     fetchTest();
   }, [id]);
+
+  const addOption = () => {
+  if (question.currentOption.trim() || question.currentCodeOption.trim()) {
+    const newOption = {
+      text: question.currentOption.trim(),
+      code: question.currentCodeOption.trim()
+    };
+    
+    setQuestion({
+      ...question,
+      options: [...question.options, newOption],
+      currentOption: '',
+      currentCodeOption: ''
+    });
+  }
+};
+
+const removeOption = (index) => {
+  const newOptions = [...question.options];
+  newOptions.splice(index, 1);
+  setQuestion({ ...question, options: newOptions });
+};
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
@@ -61,15 +90,38 @@ export default function TestDetails() {
     formData.append('bonne_reponse', question.bonne_reponse);
     formData.append('points', question.points.toString());
     
-    // Modifiez cette partie pour les options
+    // Gestion des options selon le type de question
     if (question.type === 'choix_multiple') {
-      const options = question.options.split(',').map(opt => opt.trim());
-      formData.append('options', JSON.stringify(options));
+      // Deux formats possibles :
+      // 1. Ancien format : options séparées par des virgules (rétrocompatibilité)
+      // 2. Nouveau format : tableau d'objets {text, code}
+      
+      let optionsToSend;
+      
+      if (Array.isArray(question.options)) {
+        // Nouveau format avec code
+        optionsToSend = question.options.map(opt => {
+          if (opt.code) {
+            // Format: "texte```code```" pour les options avec code
+            return opt.text ? `${opt.text}\n\`\`\`\n${opt.code}\n\`\`\`` : `\`\`\`\n${opt.code}\n\`\`\``;
+          }
+          return opt.text;
+        });
+      } else {
+        // Ancien format (string séparée par virgules)
+        optionsToSend = question.options.split(',').map(opt => opt.trim());
+      }
+      
+      formData.append('options', JSON.stringify(optionsToSend));
+    } else if (question.type === 'vrai_faux') {
+      // Cas particulier pour Vrai/Faux
+      formData.append('options', JSON.stringify(['Vrai', 'Faux']));
     } else {
+      // Texte libre ou autres types
       formData.append('options', JSON.stringify([]));
     }
     
-    // Ajout des images
+    // Ajout des images (fonctionnalité existante)
     question.images.forEach((image) => {
       formData.append('images', image);
     });
@@ -80,7 +132,24 @@ export default function TestDetails() {
       }
     });
     
-    // ... reste du code inchangé
+    // Réinitialisation du formulaire après succès
+    setQuestion({
+      type: 'choix_multiple',
+      enonce: '',
+      options: [],
+      currentOption: '',
+      currentCodeOption: '',
+      bonne_reponse: '',
+      points: 1,
+      images: []
+    });
+    setPreviewImages([]);
+    setMessage('Question ajoutée avec succès!');
+    
+    // Rafraîchissement de la liste des questions
+    const questionsRes = await api.get(`/tests/${id}/questions`);
+    setQuestions(questionsRes.data);
+    
   } catch (err) {
     console.error('Erreur détaillée:', err.response?.data);
     setMessage(`Erreur: ${err.response?.data?.errors?.[0]?.msg || err.response?.data?.message || err.message}`);
@@ -121,15 +190,84 @@ export default function TestDetails() {
                 onChange={(e) => setQuestion({ ...question, enonce: e.target.value })}
                 required
               />
-              {(question.type === 'choix_multiple' || question.type === 'vrai_faux') && (
-                <input
-                  type="text"
-                  placeholder="Options (séparées par virgules)"
-                  className="w-full border px-3 py-2 rounded"
-                  value={question.options}
-                  onChange={(e) => setQuestion({ ...question, options: e.target.value })}
-                />
+              {(question.type === 'choix_multiple') && (
+  <div className="space-y-3">
+    <h3 className="font-medium">Options de réponse:</h3>
+    
+    {/* Champ texte pour le libellé de l'option */}
+    <input
+      type="text"
+      placeholder="Libellé de l'option"
+      className="w-full border px-3 py-2 rounded"
+      value={question.currentOption}
+      onChange={(e) => setQuestion({...question, currentOption: e.target.value})}
+    />
+    
+    {/* Éditeur de code pour le contenu de l'option */}
+    <div className="border rounded bg-gray-50">
+      <Editor
+        value={question.currentCodeOption}
+        onValueChange={(code) => setQuestion({...question, currentCodeOption: code})}
+        highlight={code => highlight(code, languages.js, 'javascript')}
+        padding={10}
+        style={{
+          fontFamily: '"Fira code", "Fira Mono", monospace',
+          fontSize: 14,
+          minHeight: '100px'
+        }}
+        placeholder="Entrez le code pour cette option (optionnel)"
+      />
+    </div>
+    
+    <button
+      type="button"
+      onClick={addOption}
+      className="bg-blue-500 text-white px-3 py-1 rounded text-sm"
+    >
+      Ajouter cette option
+    </button>
+    
+    {/* Liste des options ajoutées */}
+    <div className="mt-3 space-y-2">
+      {question.options.map((option, index) => (
+        <div key={index} className="border p-3 rounded bg-white group">
+          <div className="flex justify-between items-start">
+            <div>
+              {option.text && <p className="font-medium">{option.text}</p>}
+              {option.code && (
+                <pre className="bg-gray-100 p-2 rounded mt-1 text-sm overflow-x-auto">
+                  <code>{option.code}</code>
+                </pre>
               )}
+            </div>
+            <button
+              type="button"
+              onClick={() => removeOption(index)}
+              className="text-red-500 opacity-0 group-hover:opacity-100"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+    
+    {/* Champ pour la bonne réponse */}
+    <select
+      className="w-full border px-3 py-2 rounded mt-3"
+      value={question.bonne_reponse}
+      onChange={(e) => setQuestion({...question, bonne_reponse: e.target.value})}
+      required
+    >
+      <option value="">Sélectionnez la bonne réponse</option>
+      {question.options.map((option, index) => (
+        <option key={index} value={option.text || option.code}>
+          {option.text || "Option " + (index + 1)}
+        </option>
+      ))}
+    </select>
+  </div>
+)}
               <input
                 type="text"
                 placeholder="Bonne réponse"
@@ -208,9 +346,29 @@ export default function TestDetails() {
         <div className="mb-1">
           <p className="font-medium">Options :</p>
           <ul className="list-disc pl-6">
-            {q.options && q.options.map((opt, index) => (
-              <li key={index}>{opt}</li>
-            ))}
+            {q.options && q.options.map((opt, index) => {
+  // Détection du code dans l'option (format: texte```code```)
+  const hasCode = typeof opt === 'string' && opt.includes('```');
+  
+  if (hasCode) {
+    const parts = opt.split('```');
+    const textPart = parts[0].trim();
+    const codePart = parts[1].trim();
+    
+    return (
+      <li key={index}>
+        {textPart && <p>{textPart}</p>}
+        {codePart && (
+          <pre className="bg-gray-100 p-2 rounded text-sm mt-1">
+            <code>{codePart}</code>
+          </pre>
+        )}
+      </li>
+    );
+  }
+  
+  return <li key={index}>{opt}</li>;
+})}
           </ul>
         </div>
       )}
