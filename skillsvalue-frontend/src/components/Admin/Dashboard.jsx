@@ -4,9 +4,10 @@ import PrivateRoute from '../Auth/PrivateRoute';
 import { useAuth } from '../../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { Share2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
-  const { logout } = useAuth();
+  const navigate = useNavigate();
   const [tests, setTests] = useState([]);
   const [message, setMessage] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -21,17 +22,65 @@ export default function Dashboard() {
     duree: 30,
   });
 
+  const handleTestClick = (test) => {
+    if (test.is_generated) {
+      // Redirection vers page spéciale pour les tests générés
+      navigate(`/generated-test/${test.id}`);
+    } else {
+      // Comportement normal pour les tests manuels
+      navigate(`/tests/${test.id}`);
+    }
+  };
+
   useEffect(() => {
-    const fetchTests = async () => {
-      try {
-        const response = await api.get('/tests');
-        setTests(response.data);
-      } catch (err) {
-        console.error('Erreur chargement tests:', err);
-      }
-    };
-    fetchTests();
-  }, []);
+  const fetchTests = async () => {
+    try {
+      const response = await api.get('/tests');
+      const formattedTests = response.data.map(test => ({
+        ...test,
+        // Convertit la chaîne JSON en tableau si nécessaire
+        questions: test.questions 
+          ? typeof test.questions === 'string' 
+            ? JSON.parse(test.questions).items 
+            : test.questions
+          : []
+      }));
+      console.log('Tests formatés:', formattedTests);
+      setTests(formattedTests);
+    } catch (err) {
+      console.error('Erreur chargement tests:', err);
+    }
+  };
+  fetchTests();
+}, []);
+
+const QuestionsList = ({ questions }) => {
+  // S'assure que questions est toujours un tableau
+  const safeQuestions = Array.isArray(questions) 
+    ? questions 
+    : typeof questions === 'string'
+      ? JSON.parse(questions)?.items || []
+      : [];
+
+  return (
+    <div className="mt-3 border-t pt-3">
+      <h4 className="font-medium mb-2">
+        Questions ({safeQuestions.length})
+      </h4>
+      {safeQuestions.length > 0 ? (
+        <ul className="space-y-1 list-disc pl-5">
+          {safeQuestions.map((q, i) => (
+            <li key={i} className="text-sm">
+              {typeof q === 'string' ? q : 'Question format invalide'}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-gray-500">Aucune question disponible</p>
+      )}
+    </div>
+  );
+};
 
   const handleAddTest = async (e) => {
     e.preventDefault();
@@ -72,29 +121,52 @@ export default function Dashboard() {
    // Nouvelle fonction pour générer les tests via l'API interview
   const handleGenerateTests = async () => {
   try {
-    const tech = prompt("Quelle technologie pour générer les questions ? (ex: react)"); 
-    if (!tech) return;
+    const tech = prompt("Quelle technologie pour générer les questions ? (ex: react)");
+    if (!tech || tech.trim() === "") return;
 
-    setMessage('Génération des tests en cours...');
+    setMessage(`Préparation des questions ${tech}...`);
 
-    // Appel à l'API backend
-    const response = await api.get(`/interview?tech=${encodeURIComponent(tech)}`);
+    // 1. Scraper les questions depuis la source
+    const scrapeResponse = await api.post('/scrape-interview-questions', { tech });
+    const { questions, title, url: sourceUrl } = scrapeResponse.data;
 
-    const data = response.data;
+    if (!questions?.length) {
+      throw new Error("Aucune question n'a pu être récupérée");
+    }
 
-    const generatedTest = {
-      titre: data.title || `Test Interview ${tech}`,
-      description: `Questions générées automatiquement sur ${tech}`,
+    // 2. Sauvegarder dans votre table 'test' existante
+    const testResponse = await api.post('/tests', {
+      titre: title || `Interview ${tech}`,
+      description: `Questions générées automatiquement (${new Date().toLocaleDateString()})`,
       duree: 60,
-      questions: data.questions || [],
+      // Stockage des questions dans un champ JSON
+      questions: JSON.stringify({
+        items: questions,
+        source: sourceUrl,
+        tech
+      })
+    });
+
+    // 3. Mise à jour de l'état local
+    const newTest = {
+      ...testResponse.data,
+      // Conversion pour l'affichage
+      questions: questions,
+      is_generated: true
     };
 
-    // Ajouter le test généré dans la liste
-    setTests(prev => [...prev, generatedTest]);
-    setMessage('Tests générés et ajoutés avec succès !');
+    setTests(prev => [newTest, ...prev]);
+    setMessage(`Test créé avec ${questions.length} questions !`);
+
   } catch (error) {
-    console.error(error);
-    setMessage('Erreur lors de la génération des tests');
+    console.error('Erreur:', {
+      message: error.message,
+      response: error.response?.data
+    });
+    
+    setMessage(error.response?.data?.error || 
+              error.message || 
+              "Erreur lors de la création");
   }
 };
 
@@ -160,39 +232,46 @@ export default function Dashboard() {
           )}
 
           <div className="space-y-6">
-            {tests.map((test, index) => (
-              <div key={test.id ?? index} className="bg-white p-4 rounded shadow flex justify-between items-start">
-                <div>
-                  <Link
-                    to={`/tests/${test.id ?? ''}`}
-                    className="text-lg font-bold text-blue-600 hover:underline"
-                  >
-                    {test.titre}
-                  </Link>
-                  <p className="text-sm text-gray-600 mb-2">{test.description}</p>
-                  <p className="text-sm mb-4">Durée : {test.duree} minutes</p>
-
-                  {/* Affichage optionnel des questions générées */}
-                  {test.questions && test.questions.length > 0 && (
-                    <div className="mt-2 text-xs text-gray-700 max-h-40 overflow-y-auto border p-2 rounded bg-gray-50">
-                      <strong>Questions générées :</strong>
-                      <ul className="list-disc pl-5">
-                        {test.questions.map((q, i) => (
-                          <li key={i}>{q}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => openInviteModal(test.id)}
-                  className="text-blue-500 hover:text-blue-700"
-                  title="Inviter un candidat"
-                >
-                  <Share2 size={24} />
-                </button>
-              </div>
-            ))}
+            <div className="space-y-6">
+    {tests.map((test) => (
+      <div key={test.id} className="bg-white p-4 rounded shadow">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            {/* Titre cliquable avec style différent selon le type */}
+            <div 
+              className={`cursor-pointer ${test.is_generated ? 'group' : ''}`}
+              onClick={() => handleTestClick(test)}
+            >
+              <h3 className={`text-lg font-bold ${
+                test.is_generated 
+                  ? 'text-purple-600 group-hover:underline' 
+                  : 'text-blue-600 hover:underline'
+              }`}>
+                {test.titre}
+                {test.is_generated && (
+                  <span className="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                    Auto-généré
+                  </span>
+                )}
+              </h3>
+              <p className="text-sm text-gray-600">{test.description}</p>
+              <p className="text-sm">Durée : {test.duree} minutes</p>
+            </div>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              openInviteModal(test.id);
+            }}
+            className="text-blue-500 hover:text-blue-700"
+            title="Inviter un candidat"
+          >
+            <Share2 size={20} />
+          </button>
+        </div>
+      </div>
+    ))}
+  </div>
           </div>
         </main>
 

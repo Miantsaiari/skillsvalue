@@ -11,6 +11,7 @@ import Classement from './components/Admin/Classement';
 import { NotificationProvider } from './contexts/Notificationcontext';
 import Notifications from './components/Admin/Notification';
 import AdminSuspicionPage from './components/Admin/AdminSuspicionPage';
+import GeneratedTestPage from './components/Tests/GeneratedTestPage';
 
 function App() {
   return (
@@ -26,7 +27,7 @@ function App() {
             <Route path='/notifications' element={<Notifications/>} />
             <Route path="/" element={<Dashboard />} />
             <Route path="/admin/suspicions" element={<AdminSuspicionPage />} />
-
+            <Route path="/generated-test/:id" element={<GeneratedTestPage />}/>
           </Route>
           <Route path="/tests/:testId/start" element={<TestStart />} />
           <Route path="/tests/:testId/page" element={<TestPage />} />

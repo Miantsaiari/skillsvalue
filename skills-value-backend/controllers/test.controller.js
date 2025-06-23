@@ -1,14 +1,35 @@
 const pool = require('../db');
 
 exports.createTest = async (req, res) => {
-  const { titre, description, duree } = req.body;
-   const adminId = req.adminId; 
+  const { titre, description, duree, questions } = req.body;
+  const adminId = req.adminId;
+
   try {
     const result = await pool.query(
-      `INSERT INTO test (titre, description, duree, admin_id) VALUES ($1, $2, $3, $4) RETURNING *`,
-      [titre, description, duree, adminId]
+      `INSERT INTO test 
+       (titre, description, duree, admin_id, questions, is_generated) 
+       VALUES ($1, $2, $3, $4, $5, $6) 
+       RETURNING *`,
+      [
+        titre, 
+        description, 
+        duree, 
+        adminId,
+        questions, // Stocké en tant que JSON stringifié
+        !!questions // is_generated = true si questions existent
+      ]
     );
-    res.status(201).json(result.rows[0]);
+
+    // Transforme le JSON string en tableau pour le frontend
+    const testData = {
+      ...result.rows[0],
+      questions: result.rows[0].questions 
+        ? JSON.parse(result.rows[0].questions).items 
+        : []
+    };
+
+    res.status(201).json(testData);
+
   } catch (err) {
     console.error('Erreur création test :', err);
     res.status(500).json({ error: 'Erreur lors de la création du test.' });
