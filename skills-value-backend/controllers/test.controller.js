@@ -91,7 +91,7 @@ exports.getTestById = async (req, res) => {
 
 exports.submitTest = async (req, res) => {
   const testId = req.params.id;
-  const { token, answers } = req.body;
+  const { token, answers, is_generated } = req.body;
 
   if (!token || !answers || typeof answers !== 'object') {
     return res.status(400).json({ error: 'Paramètres invalides' });
@@ -101,51 +101,73 @@ exports.submitTest = async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // 1. Supprimer les anciennes réponses du candidat pour ce test
-    await client.query(
-      'DELETE FROM reponse WHERE test_id = $1 AND token = $2',
-      [testId, token]
+    // 1. Vérifier le type de test et récupérer les infos
+    const testResult = await client.query(
+      'SELECT titre, is_generated FROM test WHERE id = $1',
+      [testId]
     );
-
-    // 2. Enregistrer les nouvelles réponses
-    for (const [questionId, reponse] of Object.entries(answers)) {
-      await client.query(
-        'INSERT INTO reponse (test_id, token, question_id, reponse) VALUES ($1, $2, $3, $4)',
-        [testId, token, questionId, reponse]
-      );
+    
+    if (testResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Test non trouvé' });
     }
 
-    // 3. Récupérer les informations du candidat
+    const { titre: titreTest, is_generated: dbIsGenerated } = testResult.rows[0];
+    const isGenerated = is_generated || dbIsGenerated;
+
+    // 2. Pour TOUS les tests, enregistrer dans generated_test_results
+    await client.query(
+      `INSERT INTO generated_test_results 
+       (test_id, token, answers, submitted_at, is_manual)
+       VALUES ($1, $2, $3, NOW(), $4)`,
+      [testId, token, JSON.stringify(answers), !isGenerated]
+    );
+
+    // 3. Pour les tests MANUELS uniquement, garder l'ancien système
+    if (!isGenerated) {
+      // Supprimer les anciennes réponses
+      await client.query(
+        'DELETE FROM reponse WHERE test_id = $1 AND token = $2',
+        [testId, token]
+      );
+
+      // Insérer les nouvelles réponses
+      for (const [questionId, reponse] of Object.entries(answers)) {
+        await client.query(
+          'INSERT INTO reponse (test_id, token, question_id, reponse) VALUES ($1, $2, $3, $4)',
+          [testId, token, questionId, reponse]
+        );
+      }
+    }
+
+    // 4. Récupérer l'email du candidat
     const candidatResult = await client.query(
       'SELECT email FROM candidat WHERE token = $1',
       [token]
     );
     const email = candidatResult.rows[0]?.email || 'Inconnu';
 
-    // 4. Récupérer le titre du test
-    const testResult = await client.query(
-      'SELECT titre FROM test WHERE id = $1',
-      [testId]
-    );
-    const titreTest = testResult.rows[0]?.titre || 'Test sans titre';
-
+    // 5. Créer la notification
     await client.query(
-  'INSERT INTO notifications (email, test, test_id, token) VALUES ($1, $2, $3, $4)',
-  [email, titreTest, testId, token]
-);
+      'INSERT INTO notifications (email, test, test_id, token, is_generated) VALUES ($1, $2, $3, $4, $5)',
+      [email, titreTest, testId, token, isGenerated]
+    );
 
-    // 5. Émission de l’événement en temps réel
+    // 6. Émission de l'événement temps réel
     const io = req.app.get('io');
     io.emit('new_submission', {
       email,
       testId,
       token,
       test: titreTest,
+      is_generated: isGenerated,
       timestamp: new Date(),
     });
 
     await client.query('COMMIT');
-    res.status(200).json({ message: 'Réponses enregistrées avec succès' });
+    res.status(200).json({ 
+      message: 'Réponses enregistrées avec succès',
+      is_generated: isGenerated
+    });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Erreur soumission test :', err);

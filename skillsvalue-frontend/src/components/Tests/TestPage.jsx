@@ -105,40 +105,71 @@ export default function TestPage() {
 }, [testId, token]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (!token) {
-        setError('Token manquant');
-        setLoading(false);
-        return;
-      }
+  const fetchData = async () => {
+    if (!token) {
+      setError('Token manquant');
+      setLoading(false);
+      return;
+    }
 
-      try {
-        const [testRes, questionsRes] = await Promise.all([
-          api.get(`/tests/${testId}/public`),
-          api.get(`/tests/${testId}/questions/candidate`, { params: { token } }),
-        ]);
+    try {
+      const testRes = await api.get(`/tests/${testId}/public`);
+      setTestInfo(testRes.data);
 
-        setTestInfo(testRes.data);
-        setQuestions(questionsRes.data);
-        const savedTime = localStorage.getItem(`timeLeft-${testId}-${token}`);
-        setTimeLeft(savedTime ? parseInt(savedTime, 10) : testRes.data.duree * 60);
-
-
-        const initialAnswers = {};
-        questionsRes.data.forEach(q => {
-          initialAnswers[q.id] = q.type === 'choix_multiple' ? [] : '';
+      let questionsData = [];
+      
+      // Gestion différente pour les tests générés
+      if (testRes.data.is_generated) {
+        // Pour les tests générés, les questions sont dans testRes.data.questions
+        try {
+          const parsedQuestions = typeof testRes.data.questions === 'string' 
+            ? JSON.parse(testRes.data.questions) 
+            : testRes.data.questions;
+          
+          questionsData = parsedQuestions.items || parsedQuestions || [];
+          
+          // Formatage pour correspondre à la structure attendue
+          questionsData = questionsData.map((q, index) => ({
+            id: index, // Créer un ID si absent
+            enonce: q.question || q,
+            type: q.isQcm ? 'choix_multiple' : 'texte_libre',
+            options: q.isQcm ? q.answers : [],
+            correctIndex: q.isQcm ? q.correctIndex : null
+          }));
+        } catch (e) {
+          console.error('Erreur parsing questions:', e);
+          questionsData = [];
+        }
+      } else {
+        // Pour les tests normaux
+        const questionsRes = await api.get(`/tests/${testId}/questions/candidate`, { 
+          params: { token } 
         });
-        setAnswers(initialAnswers);
-
-      } catch (err) {
-        console.error(err);
-        setError(err.response?.data?.error || 'Erreur de chargement');
-      } finally {
-        setLoading(false);
+        questionsData = questionsRes.data;
       }
-    };
-    fetchData();
-  }, [testId, token]);
+
+      setQuestions(questionsData);
+      
+      // Initialisation des réponses
+      const initialAnswers = {};
+      questionsData.forEach(q => {
+        initialAnswers[q.id] = q.type === 'choix_multiple' ? [] : '';
+      });
+      setAnswers(initialAnswers);
+
+      // Gestion du temps
+      const savedTime = localStorage.getItem(`timeLeft-${testId}-${token}`);
+      setTimeLeft(savedTime ? parseInt(savedTime, 10) : testRes.data.duree * 60);
+
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.error || 'Erreur de chargement');
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchData();
+}, [testId, token]);
 
  useEffect(() => {
   if (timeLeft <= 0) {
@@ -181,22 +212,23 @@ export default function TestPage() {
   };
 
   const handleSubmit = async () => {
-    try {
-      const formattedAnswers = Object.entries(answers).reduce((acc, [questionId, value]) => {
-        acc[questionId] = Array.isArray(value) ? value.join(', ') : value.toString();
-        return acc;
-      }, {});
+  try {
+    const formattedAnswers = Object.entries(answers).reduce((acc, [questionId, value]) => {
+      acc[questionId] = Array.isArray(value) ? value.join(', ') : value.toString();
+      return acc;
+    }, {});
 
-      await api.post(`/tests/${testId}/submit`, {
-        token,
-        answers: formattedAnswers,
-      });
+    await api.post(`/tests/${testId}/submit`, {
+      token,
+      answers: formattedAnswers,
+      is_generated: testInfo?.is_generated // Indiquer le type de test
+    });
 
-      navigate('/merci');
-    } catch {
-      alert('Erreur lors de la soumission');
-    }
-  };
+    navigate('/merci');
+  } catch {
+    alert('Erreur lors de la soumission');
+  }
+};
 
   if (loading) return <div>Chargement…</div>;
   if (error) return <div className="text-red-600">{error}</div>;
