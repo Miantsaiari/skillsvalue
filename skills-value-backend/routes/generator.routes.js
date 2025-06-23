@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { getInterviewQuestions } = require('../controllers/generator.controller');
-const { getInterviewLink, scrapeQuestions } = require('../models/generator.model');
+const { getInterviewLink, scrapeQuestionsWithAnswers } = require('../models/generator.model');
+const pool = require('../db');
 
 router.get('/api/interview', getInterviewQuestions);
 
@@ -11,7 +12,7 @@ router.post('/api/generate-interview', async (req, res) => {
   try {
     // 1. Scraper et stocker dans PostgreSQL (votre code existant)
     const linkData = await getInterviewLink(tech);
-    const scrapedData = await scrapeQuestions(linkData.url);
+    const scrapedData = await scrapeQuestionsWithAnswers(linkData.url);
     
     // 2. Insérer dans la base de données
     const interviewInsert = await db.query(
@@ -66,6 +67,27 @@ router.get('/api/interview-questions', async (req, res) => {
   }
 });
 
+// Dans votre fichier de routes (ex: tests.routes.js)
+router.put('/api/tests/:id', async (req, res) => {
+  try {
+    const { questions, ...otherData } = req.body;
+    
+    // questions est déjà stringifié par le frontend
+    const result = await pool.query(
+      `UPDATE test SET questions = $1 WHERE id = $2 RETURNING *`,
+      [questions, req.params.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Test non trouvé' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/api/scrape-interview-questions', async (req, res) => {
   const { tech } = req.body;
   
@@ -74,7 +96,8 @@ router.post('/api/scrape-interview-questions', async (req, res) => {
     const linkData = await getInterviewLink(tech);
     
     // 2. Scraper les questions (votre fonction existante)
-    const scrapedData = await scrapeQuestions(linkData.url);
+    const scrapedData = await scrapeQuestionsWithAnswers(linkData.url);
+    console.log(scrapedData);
     
     // 3. Formater la réponse
     res.json({

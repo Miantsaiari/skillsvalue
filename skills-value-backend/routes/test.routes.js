@@ -13,7 +13,29 @@ router.get('/api/tests/:id', getTestById);
 router.get('/api/tests/:id/public', getTestPublic);
 router.post('/api/tests/:id/submit', submitTest);
 router.get('/api/tests/:testId/results/:token', getResultsByToken);
-
+// Dans votre fichier de routes (ex: tests.routes.js)
+router.delete('/api/tests/:id', async (req, res) => {
+  try {
+    // D'abord supprimer les enregistrements liés
+    await pool.query('DELETE FROM suspicion WHERE test_id = $1', [req.params.id]);
+    
+    // Puis supprimer le test
+    const result = await pool.query(
+      'DELETE FROM test WHERE id = $1 RETURNING *',
+      [req.params.id]
+    );
+    
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Test non trouvé' });
+    }
+    
+    res.json({ success: true });
+    
+  } catch (err) {
+    console.error('Erreur suppression test:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 router.post('/api/tests/:testId/suspicion', async (req, res) => {
   const { testId } = req.params;
   const { token, event } = req.body;

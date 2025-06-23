@@ -1,4 +1,4 @@
-const { getInterviewLink, scrapeQuestions } = require('../models/generator.model');
+const { getInterviewLink, scrapeQuestionsWithAnswers } = require('../models/generator.model');
 const db= require("../db");
 
 async function getInterviewQuestions(req, res) {
@@ -12,7 +12,7 @@ async function getInterviewQuestions(req, res) {
     const linkData = await getInterviewLink(tech);
     
     // 2. Scraper les questions
-    const scrapedData = await scrapeQuestions(linkData.url);
+    const scrapedData = await scrapeQuestionsWithAnswers(linkData.url);
 
     // 3. Commencer une transaction
     await db.query('BEGIN');
@@ -27,12 +27,12 @@ async function getInterviewQuestions(req, res) {
     const interviewId = interviewInsert.rows[0].interview_id;
 
     // 5. Insérer les questions une par une
-    for (const question of scrapedData.questions) {
-      await db.query(
-        `INSERT INTO questions (interview_id, question_text)
-         VALUES ($1, $2)`,
-        [interviewId, question]
-      );
+    for (const qa of scrapedData.questions) {
+      await pool.query(
+      `INSERT INTO questions (interview_id, question_text, answer)
+       VALUES ($1, $2, $3)`,
+      [interviewId, qa.question, qa.answer]
+    );
     }
 
     // 6. Valider la transaction
