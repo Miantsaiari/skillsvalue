@@ -14,7 +14,7 @@ const reponseRoutes = require('./routes/reponse.routes');
 const notifRoutes = require('./routes/notification.routes');
 const generatorRoutes = require('./routes/generator.routes');
 const path=require('path');
-
+const qcmRouter = require('./routes/qcm.routes')
 const app = express();
 const server = http.createServer(app); // important pour socket.io
 
@@ -39,6 +39,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
     res.set('Access-Control-Allow-Origin', '*');
   }
 }));
+
+app.use('/api/qcm', qcmRouter);
 
 // Routes
 app.use(adminRoutes);

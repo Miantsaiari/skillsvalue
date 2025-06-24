@@ -5,6 +5,7 @@ import { ArrowLeft, Check, Trash2, Plus, X } from 'lucide-react';
 
 export default function GeneratedTestPage() {
   const { id } = useParams();
+  const [loadingQcmIndex, setLoadingQcmIndex] = useState(null);
   const navigate = useNavigate();
   const [test, setTest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -16,6 +17,41 @@ export default function GeneratedTestPage() {
     answers: [''],
     correctIndex: 0
   });
+
+  const generateQcmFromAi = async (questionText, answerText) => {
+  const prompt = `Generate a multiple-choice quiz with 5 answers (1 correct + 4 false but plausible) for the following question.
+Use the provided answer to formulate a short, clear, and correct answer (summary sentence).
+Make sure all answers are consistent with the technical context:
+
+Question: ${questionText}
+
+Answer: ${answerText}`;
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer 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',
+        'HTTP-Referer': 'https://www.sitename.com',
+        'X-Title': 'SiteName',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'deepseek/deepseek-r1:free',
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await response.json();
+    const markdown = data.choices?.[0]?.message?.content;
+
+    return markdown;
+  } catch (error) {
+    console.error('Erreur génération QCM:', error);
+    return null;
+  }
+};
+
 
   useEffect(() => {
     const fetchTest = async () => {
@@ -54,15 +90,64 @@ export default function GeneratedTestPage() {
     fetchTest();
   }, [id]);
 
-  const startEditing = (index) => {
-    const question = test.questions[index];
+  const startEditing = async (index) => {
+  const question = test.questions[index];
+
+  // Active le loading pour ce bouton
+  setLoadingQcmIndex(index);
+
+  // Si déjà QCM, édition directe
+  if (question.isQcm) {
     setEditingIndex(index);
     setQcmData({
       question: question.question,
-      answers: question.isQcm ? question.answers : [''],
-      correctIndex: question.isQcm ? question.correctIndex : 0
+      answers: question.answers,
+      correctIndex: question.correctIndex
     });
-  };
+    setLoadingQcmIndex(null);
+    return;
+  }
+
+  // Génération automatique via IA
+  const aiQcm = await generateQcmFromAi(question.question, question.answer);
+
+  setLoadingQcmIndex(null); // Désactive le loading dans tous les cas
+
+  if (!aiQcm) {
+    alert('Impossible de générer le QCM.');
+    return;
+  }
+
+  const lines = aiQcm.split('\n').map(l => l.trim()).filter(Boolean);
+  const answers = [];
+  let qText = question.question;
+  let correctIndex = 0;
+
+  lines.forEach((line, i) => {
+    if (line.startsWith('### Question')) {
+      qText = lines[i + 1] || question.question;
+    }
+    if (line.match(/^[A-Da-d][\).]/)) {
+      answers.push(line.replace(/^[A-Da-d][\).]\s*/, ''));
+    }
+    if (line.toLowerCase().startsWith('### bonne réponse') || line.toLowerCase().includes('correct answer')) {
+      const correct = lines[i + 1] || '';
+      if (correct.includes('A')) correctIndex = 0;
+      else if (correct.includes('B')) correctIndex = 1;
+      else if (correct.includes('C')) correctIndex = 2;
+      else if (correct.includes('D')) correctIndex = 3;
+    }
+  });
+
+  setEditingIndex(index);
+  setQcmData({
+    question: qText,
+    answers,
+    correctIndex
+  });
+};
+
+
 
   const handleAnswerChange = (index, value) => {
     const newAnswers = [...qcmData.answers];
@@ -270,15 +355,26 @@ export default function GeneratedTestPage() {
 
                 {!isEditing && (
                   <button
-                    onClick={() => startEditing(index)}
-                    className={`ml-4 px-3 py-1 rounded text-sm ${
-                      question.isQcm 
-                        ? 'bg-purple-100 text-purple-600' 
-                        : 'bg-blue-100 text-blue-600'
-                    }`}
-                  >
-                    {question.isQcm ? 'Modifier QCM' : 'Créer QCM'}
-                  </button>
+  onClick={() => startEditing(index)}
+  className={`ml-4 px-3 py-1 rounded text-sm ${
+    question.isQcm 
+      ? 'bg-purple-100 text-purple-600' 
+      : 'bg-blue-100 text-blue-600'
+  }`}
+>
+  {loadingQcmIndex === index ? (
+    <span className="flex items-center space-x-2">
+      <svg className="animate-spin h-4 w-4 mr-2 text-gray-600" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+      </svg>
+      <span>Génération...</span>
+    </span>
+  ) : (
+    question.isQcm ? 'Modifier QCM' : 'Créer QCM'
+  )}
+</button>
+
                 )}
               </div>
             </div>
