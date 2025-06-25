@@ -19,38 +19,21 @@ export default function GeneratedTestPage() {
   });
 
   const generateQcmFromAi = async (questionText, answerText) => {
-  const prompt = `Generate a multiple-choice quiz with 5 answers (1 correct + 4 false but plausible) for the following question.
-Use the provided answer to formulate a short, clear, and correct answer (summary sentence).
-Make sure all answers are consistent with the technical context:
-
-Question: ${questionText}
-
-Answer: ${answerText}`;
-
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('http://localhost:3001/api/generate-qcm', {
       method: 'POST',
-      headers: {
-        Authorization: 'Bearer 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',
-        'HTTP-Referer': 'https://www.sitename.com',
-        'X-Title': 'SiteName',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'deepseek/deepseek-r1:free',
-        messages: [{ role: 'user', content: prompt }]
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: questionText, answer: answerText })
     });
 
     const data = await response.json();
-    const markdown = data.choices?.[0]?.message?.content;
-
-    return markdown;
+    return data.choices?.[0]?.message?.content;
   } catch (error) {
     console.error('Erreur génération QCM:', error);
     return null;
   }
 };
+
 
 
   useEffect(() => {

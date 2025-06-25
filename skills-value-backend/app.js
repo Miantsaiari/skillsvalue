@@ -4,6 +4,7 @@ const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io'); // socket.io ajouté ici
 const fs = require('fs');
+const proxyRoutes = require('./proxy');
 
 const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
@@ -14,7 +15,6 @@ const reponseRoutes = require('./routes/reponse.routes');
 const notifRoutes = require('./routes/notification.routes');
 const generatorRoutes = require('./routes/generator.routes');
 const path=require('path');
-const qcmRouter = require('./routes/qcm.routes')
 const app = express();
 const server = http.createServer(app); // important pour socket.io
 
@@ -30,6 +30,7 @@ app.set('io', io);
 // CORS et JSON
 app.use(cors());
 app.use(express.json());
+app.use('/api', proxyRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
   setHeaders: (res, filePath) => {
     // Désactive le cache pour le débogage
@@ -39,8 +40,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
     res.set('Access-Control-Allow-Origin', '*');
   }
 }));
-
-app.use('/api/qcm', qcmRouter);
 
 // Routes
 app.use(adminRoutes);
